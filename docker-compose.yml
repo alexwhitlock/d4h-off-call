@@ -1,0 +1,9 @@
+services:
+  imt-offcall:
+    build: .
+    image: imt-offcall:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5002:8080"
+    env_file:
+      - .env
