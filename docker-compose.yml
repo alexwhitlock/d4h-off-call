@@ -1,7 +1,7 @@
 services:
-  imt-offcall:
+  d4h-off-call:
     build: .
-    image: imt-offcall:latest
+    image: d4h-off-call:latest
     restart: unless-stopped
     ports:
       - "127.0.0.1:5002:8080"
