@@ -1033,18 +1033,14 @@ function renderGantt() {
         }
       }
 
-      /* Holiday name — only when columns are wide enough to read */
-      if (isHol && ganttPPD >= 30) {
-        const cx = x + ganttPPD / 2;
-        if (cx > G_LABEL_W && cx < W) {
-          const cx1 = Math.max(x, G_LABEL_W), cx2 = Math.min(x + ganttPPD, W);
-          ctx.save();
-          ctx.beginPath(); ctx.rect(cx1 + 1, 18, cx2 - cx1 - 2, 18); ctx.clip();
-          ctx.textAlign = "center";
+      /* Holiday name — left-aligned from column start, maxWidth prevents overflow */
+      if (isHol && ganttPPD >= 5) {
+        const hx = Math.max(x + 2, G_LABEL_W + 2);
+        if (hx < W - 12) {
+          ctx.textAlign = "left";
           ctx.font = "bold 10px system-ui";
           ctx.fillStyle = "#1d4ed8";
-          ctx.fillText(hmap[ymd], (cx1 + cx2) / 2, 27);
-          ctx.restore();
+          ctx.fillText(hmap[ymd], hx, 27, Math.min(W - hx - 4, 130));
         }
       }
 
@@ -1080,14 +1076,18 @@ function renderGantt() {
       ctx.setLineDash([4, 3]);
       ctx.beginPath(); ctx.moveTo(tx, G_HDR_H); ctx.lineTo(tx, H); ctx.stroke();
       ctx.setLineDash([]);
-      /* "Today" badge at the bottom of the header — white bg knocks out day labels */
-      ctx.font = "bold 9px system-ui";
-      ctx.textAlign = "center";
-      const lw = ctx.measureText("Today").width;
-      ctx.fillStyle = "rgba(255,255,255,0.92)";
-      ctx.fillRect(tx - lw / 2 - 3, G_HDR_H - 14, lw + 6, 13);
-      ctx.fillStyle = "#ef4444";
-      ctx.fillText("Today", tx, G_HDR_H - 4);
+      /* "Today" label placed in the holiday-name zone (y=18–36), which is free on
+         non-holiday days. Skip the label if today is a holiday (text would collide). */
+      const todayYmd = ymdFromDate(today);
+      if (!hmap[todayYmd]) {
+        ctx.font = "bold 9px system-ui";
+        ctx.textAlign = "left";
+        const lw = ctx.measureText("Today").width;
+        ctx.fillStyle = "rgba(255,255,255,0.9)";
+        ctx.fillRect(tx + 1, 18, lw + 6, 17);
+        ctx.fillStyle = "#ef4444";
+        ctx.fillText("Today", tx + 3, 30);
+      }
     }
   }
 
