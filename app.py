@@ -1,6 +1,8 @@
 from flask import Flask, jsonify, render_template, request
 import requests
 import os
+import json
+from pathlib import Path
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 
@@ -12,6 +14,20 @@ API_KEY          = os.environ["D4H_API_KEY"]
 TEAM_ID          = os.environ["D4H_TEAM_ID"]
 DEFAULT_GROUP_ID = os.environ.get("D4H_GROUP_ID", "")
 BASE_URL         = "https://api.team-manager.ca.d4h.com/v3"
+DATA_DIR         = Path(os.environ.get("DATA_DIR", "data"))
+FAVOURITES_FILE  = DATA_DIR / "favourites.json"
+
+
+def _read_favourites():
+    try:
+        return json.loads(FAVOURITES_FILE.read_text())
+    except Exception:
+        return []
+
+
+def _write_favourites(ids):
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    FAVOURITES_FILE.write_text(json.dumps(ids))
 
 
 def _headers():
@@ -125,6 +141,18 @@ def get_data(group_id):
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+@app.route("/api/favourites", methods=["GET"])
+def get_favourites():
+    return jsonify({"group_ids": _read_favourites()})
+
+
+@app.route("/api/favourites", methods=["POST"])
+def post_favourites():
+    ids = (request.get_json() or {}).get("group_ids", [])
+    _write_favourites(ids)
+    return jsonify({"ok": True})
 
 
 @app.route("/api/groups")

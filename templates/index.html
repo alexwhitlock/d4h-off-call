@@ -450,7 +450,7 @@ const imtShadingPlugin = {
 let _data          = null;
 let _groups        = [];
 let _selectedGroupId = null;
-let _favourites    = new Set(JSON.parse(localStorage.getItem("sbo_fav_groups") || "[]"));
+let _favourites    = new Set();
 let _currentView   = "chart";
 
 /* ------------------------------------------------------------------ */
@@ -459,10 +459,14 @@ let _currentView   = "chart";
 
 async function loadGroups() {
   try {
-    const resp = await fetch("/api/groups");
-    if (!resp.ok) { showError("Failed to load groups"); return; }
-    const body = await resp.json();
+    const [groupsResp, favsResp] = await Promise.all([fetch("/api/groups"), fetch("/api/favourites")]);
+    if (!groupsResp.ok) { showError("Failed to load groups"); return; }
+    const body = await groupsResp.json();
     _groups = body.groups || [];
+    if (favsResp.ok) {
+      const favsBody = await favsResp.json();
+      _favourites = new Set(favsBody.group_ids || []);
+    }
 
     const saved = localStorage.getItem("sbo_last_group") || body.default_group_id || "";
     _selectedGroupId = (saved && _groups.find(g => g.id === saved)) ? saved : (_groups[0]?.id || null);
@@ -521,8 +525,12 @@ function selectGroup(id) {
 function toggleFavourite(event, id) {
   event.stopPropagation();
   _favourites.has(id) ? _favourites.delete(id) : _favourites.add(id);
-  localStorage.setItem("sbo_fav_groups", JSON.stringify([..._favourites]));
   renderGroupDropdown();
+  fetch("/api/favourites", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ group_ids: [..._favourites] })
+  });
 }
 
 document.addEventListener("click", e => {
