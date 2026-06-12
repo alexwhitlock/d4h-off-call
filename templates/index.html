@@ -269,6 +269,8 @@
     cursor: grab;
   }
   #ganttWrapper:active { cursor: grabbing; }
+  #ganttHeaderCanvas { display: block; width: 100%; position: sticky; top: 0; z-index: 2; cursor: grab; }
+  #ganttHeaderCanvas:active { cursor: grabbing; }
   #ganttCanvas { display: block; width: 100%; }
   #ganttHint { font-size: 0.73rem; color: var(--text-muted); text-align: right; margin-top: 6px; }
 
@@ -369,6 +371,7 @@
     </div>
 
     <div id="ganttWrapper" style="display:none">
+      <canvas id="ganttHeaderCanvas"></canvas>
       <canvas id="ganttCanvas"></canvas>
     </div>
     <div id="ganttHint" style="display:none">Drag to pan &bull; scroll to move vertically</div>
@@ -881,21 +884,26 @@ function toggleGanttSort() {
 
 function initGantt() {
   if (!_data) return;
-  const canvas  = document.getElementById("ganttCanvas");
-  const wrapper = document.getElementById("ganttWrapper");
-  const members = sortGanttMembers(getMembersFromData(_data), _data.entries || []);
-  const dpr     = window.devicePixelRatio || 1;
-  const cssW    = wrapper.clientWidth;
-  const cssH    = G_HDR_H + members.length * G_ROW_H + 4;
+  const hdrCanvas = document.getElementById("ganttHeaderCanvas");
+  const canvas    = document.getElementById("ganttCanvas");
+  const wrapper   = document.getElementById("ganttWrapper");
+  const members   = sortGanttMembers(getMembersFromData(_data), _data.entries || []);
+  const dpr       = window.devicePixelRatio || 1;
+  const cssW      = wrapper.clientWidth;
+
+  hdrCanvas.style.width  = "100%";
+  hdrCanvas.style.height = G_HDR_H + "px";
+  hdrCanvas.width        = cssW * dpr;
+  hdrCanvas.height       = G_HDR_H * dpr;
 
   canvas.style.width  = "100%";
-  canvas.style.height = cssH + "px";
+  canvas.style.height = (members.length * G_ROW_H + 4) + "px";
   canvas.width        = cssW * dpr;
-  canvas.height       = cssH * dpr;
+  canvas.height       = (members.length * G_ROW_H + 4) * dpr;
 
   if (!_ganttInited) {
     _ganttInited = true;
-    setGanttRange(90);  // default: 3 months
+    setGanttRange(90);
   } else {
     renderGantt();
   }
@@ -903,20 +911,17 @@ function initGantt() {
 
 function renderGantt() {
   if (!_data) return;
-  const canvas = document.getElementById("ganttCanvas");
-  const ctx    = canvas.getContext("2d");
+  const hdrCanvas = document.getElementById("ganttHeaderCanvas");
+  const canvas    = document.getElementById("ganttCanvas");
   const dpr    = window.devicePixelRatio || 1;
-  const W      = canvas.width  / dpr;
+  const W      = canvas.width / dpr;
   const H      = canvas.height / dpr;
   const chartW = W - G_LABEL_W;
 
-  ctx.save();
-  ctx.scale(dpr, dpr);
-
-  const entries   = _data.entries || [];
-  const members   = sortGanttMembers(getMembersFromData(_data), entries);
-  const startMs   = ganttStart.getTime();
-  const endDate   = new Date(startMs + (chartW / ganttPPD) * 86400000);
+  const entries = _data.entries || [];
+  const members = sortGanttMembers(getMembersFromData(_data), entries);
+  const startMs = ganttStart.getTime();
+  const endDate = new Date(startMs + (chartW / ganttPPD) * 86400000);
 
   const years = new Set();
   for (let y = ganttStart.getFullYear(); y <= endDate.getFullYear(); y++) years.add(y);
@@ -924,7 +929,11 @@ function renderGantt() {
 
   const dateToX = d => G_LABEL_W + (d.getTime() - startMs) / 86400000 * ganttPPD;
 
-  /* Background */
+  /* ---- BODY CANVAS ---- */
+  const ctx = canvas.getContext("2d");
+  ctx.save();
+  ctx.scale(dpr, dpr);
+
   ctx.fillStyle = "#fff";
   ctx.fillRect(0, 0, W, H);
 
@@ -936,45 +945,39 @@ function renderGantt() {
       if (x1 > W) break;
       const ymd = ymdFromDate(d), dow = d.getDay();
       const cx1 = Math.max(x1, G_LABEL_W), cx2 = Math.min(x2, W);
-      if (cx2 > cx1) {
-        if (hmap[ymd])              ctx.fillStyle = "rgba(59,130,246,0.10)";
-        else if (dow === 0 || dow === 6) ctx.fillStyle = "rgba(148,163,184,0.13)";
-        else                             ctx.fillStyle = null;
-        if (hmap[ymd] || dow === 0 || dow === 6) ctx.fillRect(cx1, G_HDR_H, cx2 - cx1, H - G_HDR_H);
+      if (cx2 > cx1 && (hmap[ymd] || dow === 0 || dow === 6)) {
+        ctx.fillStyle = hmap[ymd] ? "rgba(59,130,246,0.10)" : "rgba(148,163,184,0.13)";
+        ctx.fillRect(cx1, 0, cx2 - cx1, H);
       }
       d.setDate(d.getDate() + 1);
     }
   }
 
   /* Horizontal row lines */
-  ctx.strokeStyle = "#e5e7eb";
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = "#e5e7eb"; ctx.lineWidth = 1;
   for (let i = 0; i <= members.length; i++) {
-    const y = G_HDR_H + i * G_ROW_H + 0.5;
+    const y = i * G_ROW_H + 0.5;
     ctx.beginPath(); ctx.moveTo(G_LABEL_W, y); ctx.lineTo(W, y); ctx.stroke();
   }
 
   /* Off-call bars */
-  const BAR_H  = G_ROW_H - 10;
-  const BAR_PAD = 5;
+  const BAR_H = G_ROW_H - 10, BAR_PAD = 5;
   members.forEach((member, row) => {
     const rowEntries = entries.filter(e =>
       e.type === "OFF" && (e.member?.id === member.id || (!member.id && e.member?.name === member.name))
     );
-    const y = G_HDR_H + row * G_ROW_H + BAR_PAD;
+    const y = row * G_ROW_H + BAR_PAD;
     for (const e of rowEntries) {
       const s  = new Date(e.startsAt); s.setHours(0,0,0,0);
       const en = new Date(e.endsAt || e.startsAt); en.setHours(0,0,0,0);
       en.setDate(en.getDate() + 1);
-      const x1 = Math.max(dateToX(s), G_LABEL_W);
-      const x2 = Math.min(dateToX(en), W);
+      const x1 = Math.max(dateToX(s), G_LABEL_W), x2 = Math.min(dateToX(en), W);
       const bw = x2 - x1;
       if (bw <= 0) continue;
       const r = Math.min(4, bw / 2, BAR_H / 2);
       ctx.fillStyle = "rgba(220,38,38,0.55)";
       ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(x1, y, bw, BAR_H, r);
-      else ctx.rect(x1, y, bw, BAR_H);
+      if (ctx.roundRect) ctx.roundRect(x1, y, bw, BAR_H, r); else ctx.rect(x1, y, bw, BAR_H);
       ctx.fill();
     }
   });
@@ -986,169 +989,162 @@ function renderGantt() {
       const x = dateToX(d), dow = d.getDay();
       if (x < G_LABEL_W) { d.setDate(d.getDate() + 1); continue; }
       if (x > W) break;
-      if (d.getDate() === 1) {
-        ctx.strokeStyle = "rgba(100,116,139,0.4)"; ctx.lineWidth = 1;
-      } else if (dow === 1 && ganttPPD >= 5) {
-        ctx.strokeStyle = "rgba(229,231,235,0.9)"; ctx.lineWidth = 1;
-      } else if (ganttPPD >= 18) {
-        ctx.strokeStyle = "rgba(229,231,235,0.6)"; ctx.lineWidth = 0.5;
-      } else {
-        d.setDate(d.getDate() + 1); continue;
-      }
-      ctx.beginPath(); ctx.moveTo(x + 0.5, G_HDR_H); ctx.lineTo(x + 0.5, H); ctx.stroke();
+      if (d.getDate() === 1)            { ctx.strokeStyle = "rgba(100,116,139,0.4)"; ctx.lineWidth = 1; }
+      else if (dow === 1 && ganttPPD >= 5) { ctx.strokeStyle = "rgba(229,231,235,0.9)"; ctx.lineWidth = 1; }
+      else if (ganttPPD >= 18)          { ctx.strokeStyle = "rgba(229,231,235,0.6)"; ctx.lineWidth = 0.5; }
+      else { d.setDate(d.getDate() + 1); continue; }
+      ctx.beginPath(); ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, H); ctx.stroke();
       d.setDate(d.getDate() + 1);
     }
   }
 
-  /* Date header background */
-  ctx.fillStyle = "#f8fafc";
-  ctx.fillRect(0, 0, W, G_HDR_H);
-  ctx.strokeStyle = "#e5e7eb";
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(0, G_HDR_H + 0.5); ctx.lineTo(W, G_HDR_H + 0.5); ctx.stroke();
+  /* Today line */
+  {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const tx = dateToX(today);
+    if (tx >= G_LABEL_W && tx <= W) {
+      ctx.strokeStyle = "rgba(100,116,139,0.6)"; ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath(); ctx.moveTo(tx, 0); ctx.lineTo(tx, H); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
 
-  /* Date header labels */
+  /* Member label column */
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, G_LABEL_W - 1, H);
+  ctx.strokeStyle = "#e5e7eb"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(G_LABEL_W - 0.5, 0); ctx.lineTo(G_LABEL_W - 0.5, H); ctx.stroke();
+  ctx.fillStyle = "#111827"; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.font = "13px system-ui";
+  members.forEach((m, row) => {
+    ctx.fillText(m.name || "(unnamed)", 10, row * G_ROW_H + G_ROW_H / 2, G_LABEL_W - 16);
+  });
+
+  ctx.restore();
+
+  /* ---- HEADER CANVAS ---- */
+  const hc = hdrCanvas.getContext("2d");
+  hc.save();
+  hc.scale(dpr, dpr);
+
+  hc.fillStyle = "#f8fafc";
+  hc.fillRect(0, 0, W, G_HDR_H);
+
+  /* Weekend / holiday shading in header */
+  {
+    let d = new Date(ganttStart); d.setHours(0,0,0,0);
+    while (d <= endDate) {
+      const x1 = dateToX(d), x2 = x1 + ganttPPD;
+      if (x1 > W) break;
+      const ymd = ymdFromDate(d), dow = d.getDay();
+      const cx1 = Math.max(x1, G_LABEL_W), cx2 = Math.min(x2, W);
+      if (cx2 > cx1 && (hmap[ymd] || dow === 0 || dow === 6)) {
+        hc.fillStyle = hmap[ymd] ? "rgba(59,130,246,0.10)" : "rgba(148,163,184,0.13)";
+        hc.fillRect(cx1, 0, cx2 - cx1, G_HDR_H);
+      }
+      d.setDate(d.getDate() + 1);
+    }
+  }
+
+  /* Date labels */
   const showDay  = ganttPPD >= 18;
   const showWeek = ganttPPD >= 5;
   {
     let d = new Date(ganttStart); d.setHours(0,0,0,0);
     let lastMonthX = -999;
-    const holRowRight = [G_LABEL_W, G_LABEL_W]; // right-edge tracker for y=27 and y=39
+    const holRowRight = [G_LABEL_W, G_LABEL_W];
     while (d <= endDate) {
-      const x   = dateToX(d);
-      const dow  = d.getDay();
-      const ymd  = ymdFromDate(d);
-      const isHol = !!hmap[ymd];
+      const x = dateToX(d), dow = d.getDay(), ymd = ymdFromDate(d), isHol = !!hmap[ymd];
 
-      /* Month label */
       if (d.getDate() === 1 || d.getTime() === ganttStart.getTime()) {
         if (x - lastMonthX > 50) {
           const mx = Math.max(x, G_LABEL_W + 2);
-          ctx.save();
-          ctx.textAlign = "left";
-          ctx.font = "bold 11px system-ui";
-          ctx.fillStyle = "#1e40af";
-          ctx.fillText(d.toLocaleDateString("en-CA", { month: "short", year: "numeric" }), mx + 2, 11);
-          ctx.restore();
+          hc.textAlign = "left"; hc.font = "bold 11px system-ui"; hc.fillStyle = "#1e40af";
+          hc.fillText(d.toLocaleDateString("en-CA", { month: "short", year: "numeric" }), mx + 2, 11);
           lastMonthX = x;
         }
       }
 
-      /* Holiday name — stagger to lower row if top row is occupied */
       if (isHol && ganttPPD >= 5) {
         const hx = Math.max(x + 2, G_LABEL_W + 2);
         if (hx < W - 12) {
-          ctx.textAlign = "left";
-          ctx.font = "bold 10px system-ui";
-          ctx.fillStyle = "#1d4ed8";
+          hc.textAlign = "left"; hc.font = "bold 10px system-ui"; hc.fillStyle = "#1d4ed8";
           const text = hmap[ymd];
-          const drawn = Math.min(ctx.measureText(text).width, 130);
-          const row = hx > holRowRight[0] + 4 ? 0 : 1;
-          const labelY = row === 0 ? 27 : 39;
-          ctx.fillText(text, hx, labelY, 130);
-          holRowRight[row] = hx + drawn;
+          const drawn = Math.min(hc.measureText(text).width, 130);
+          const r = hx > holRowRight[0] + 4 ? 0 : 1;
+          hc.fillText(text, hx, r === 0 ? 27 : 39, 130);
+          holRowRight[r] = hx + drawn;
         }
       }
 
-      /* Day number + weekday initial */
       if (showDay) {
         const cx = x + ganttPPD / 2;
-        ctx.textAlign = "center";
-        ctx.font = "11px system-ui";
-        ctx.fillStyle = isHol ? "#1d4ed8" : (dow === 0 || dow === 6) ? "#9ca3af" : "#374151";
-        ctx.fillText(d.getDate(), cx, G_HDR_H - 18);
-        ctx.font = "10px system-ui";
-        ctx.fillStyle = "#9ca3af";
-        ctx.fillText(["S","M","T","W","T","F","S"][dow], cx, G_HDR_H - 5);
+        hc.textAlign = "center";
+        hc.font = "11px system-ui";
+        hc.fillStyle = isHol ? "#1d4ed8" : (dow === 0 || dow === 6) ? "#9ca3af" : "#374151";
+        hc.fillText(d.getDate(), cx, G_HDR_H - 18);
+        hc.font = "10px system-ui"; hc.fillStyle = "#9ca3af";
+        hc.fillText(["S","M","T","W","T","F","S"][dow], cx, G_HDR_H - 5);
       } else if (showWeek && dow === 1) {
-        /* Week start label */
-        ctx.textAlign = "left";
-        ctx.font = "11px system-ui";
-        ctx.fillStyle = "#374151";
-        ctx.fillText(d.toLocaleDateString("en-CA", { month: "short", day: "numeric" }), Math.max(x + 2, G_LABEL_W + 2), G_HDR_H - 10);
+        hc.textAlign = "left"; hc.font = "11px system-ui"; hc.fillStyle = "#374151";
+        hc.fillText(d.toLocaleDateString("en-CA", { month: "short", day: "numeric" }), Math.max(x + 2, G_LABEL_W + 2), G_HDR_H - 10);
       }
 
       d.setDate(d.getDate() + 1);
     }
   }
 
-  /* Today marker — grey dashed line, no label */
+  /* Today line in header */
   {
     const today = new Date(); today.setHours(0,0,0,0);
     const tx = dateToX(today);
     if (tx >= G_LABEL_W && tx <= W) {
-      ctx.strokeStyle = "rgba(100,116,139,0.6)";
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([4, 3]);
-      ctx.beginPath(); ctx.moveTo(tx, G_HDR_H); ctx.lineTo(tx, H); ctx.stroke();
-      ctx.setLineDash([]);
+      hc.strokeStyle = "rgba(100,116,139,0.6)"; hc.lineWidth = 1.5;
+      hc.setLineDash([4, 3]);
+      hc.beginPath(); hc.moveTo(tx, 0); hc.lineTo(tx, G_HDR_H); hc.stroke();
+      hc.setLineDash([]);
     }
   }
 
-  /* Member label column (drawn last to cover shading overflow) */
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(0, G_HDR_H, G_LABEL_W - 1, H - G_HDR_H);
-  ctx.strokeStyle = "#e5e7eb";
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(G_LABEL_W - 0.5, G_HDR_H); ctx.lineTo(G_LABEL_W - 0.5, H); ctx.stroke();
+  /* Bottom border */
+  hc.strokeStyle = "#e5e7eb"; hc.lineWidth = 1;
+  hc.beginPath(); hc.moveTo(0, G_HDR_H - 0.5); hc.lineTo(W, G_HDR_H - 0.5); hc.stroke();
 
-  ctx.fillStyle = "#111827";
-  ctx.textAlign = "left";
-  ctx.textBaseline = "middle";
-  ctx.font = "13px system-ui";
-  members.forEach((m, row) => {
-    const y = G_HDR_H + row * G_ROW_H + G_ROW_H / 2;
-    ctx.fillText(m.name || "(unnamed)", 10, y, G_LABEL_W - 16);
-  });
+  /* Top-left corner cover */
+  hc.fillStyle = "#f8fafc";
+  hc.fillRect(0, 0, G_LABEL_W - 1, G_HDR_H);
+  hc.strokeStyle = "#e5e7eb"; hc.lineWidth = 1;
+  hc.beginPath(); hc.moveTo(G_LABEL_W - 0.5, 0); hc.lineTo(G_LABEL_W - 0.5, G_HDR_H); hc.stroke();
 
-  /* Top-left corner */
-  ctx.fillStyle = "#f8fafc";
-  ctx.fillRect(0, 0, G_LABEL_W - 1, G_HDR_H);
-  ctx.strokeStyle = "#e5e7eb";
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(G_LABEL_W - 0.5, 0); ctx.lineTo(G_LABEL_W - 0.5, G_HDR_H); ctx.stroke();
-
-  ctx.restore();
+  hc.restore();
 }
 
 /* ---- Gantt interaction ---- */
-(function() {
-  const canvas = document.getElementById("ganttCanvas");
-
-  canvas.addEventListener("mousedown", e => {
-    if (e.offsetX > G_LABEL_W) {
-      ganttDragging = true;
-      ganttDragX0   = e.offsetX;
-      ganttDragDate0 = new Date(ganttStart);
-    }
+function _addGanttDrag(el) {
+  el.addEventListener("mousedown", e => {
+    if (e.offsetX > G_LABEL_W) { ganttDragging = true; ganttDragX0 = e.offsetX; ganttDragDate0 = new Date(ganttStart); }
   });
-  canvas.addEventListener("mousemove", e => {
+  el.addEventListener("mousemove", e => {
     if (!ganttDragging) return;
-    const msShift = (e.offsetX - ganttDragX0) * 86400000 / ganttPPD;
-    ganttStart = new Date(ganttDragDate0.getTime() - msShift);
+    ganttStart = new Date(ganttDragDate0.getTime() - (e.offsetX - ganttDragX0) * 86400000 / ganttPPD);
     renderGantt();
   });
-  const stopDrag = () => { ganttDragging = false; };
-  canvas.addEventListener("mouseup",    stopDrag);
-  canvas.addEventListener("mouseleave", stopDrag);
-
-  /* Touch: single-finger drag to pan */
-  canvas.addEventListener("touchstart", e => {
-    if (e.touches.length === 1) {
-      ganttDragging  = true;
-      ganttDragX0    = e.touches[0].clientX;
-      ganttDragDate0 = new Date(ganttStart);
-    }
+  const stop = () => { ganttDragging = false; };
+  el.addEventListener("mouseup", stop);
+  el.addEventListener("mouseleave", stop);
+  el.addEventListener("touchstart", e => {
+    if (e.touches.length === 1) { ganttDragging = true; ganttDragX0 = e.touches[0].clientX; ganttDragDate0 = new Date(ganttStart); }
   }, { passive: true });
-  canvas.addEventListener("touchmove", e => {
+  el.addEventListener("touchmove", e => {
     if (e.touches.length === 1 && ganttDragging) {
-      const msShift = (e.touches[0].clientX - ganttDragX0) * 86400000 / ganttPPD;
-      ganttStart = new Date(ganttDragDate0.getTime() - msShift);
+      ganttStart = new Date(ganttDragDate0.getTime() - (e.touches[0].clientX - ganttDragX0) * 86400000 / ganttPPD);
       renderGantt();
     }
   }, { passive: true });
-  canvas.addEventListener("touchend", () => { ganttDragging = false; });
-})();
+  el.addEventListener("touchend", () => { ganttDragging = false; });
+}
+_addGanttDrag(document.getElementById("ganttCanvas"));
+_addGanttDrag(document.getElementById("ganttHeaderCanvas"));
 
 /* Resize observer re-renders gantt */
 new ResizeObserver(() => {
