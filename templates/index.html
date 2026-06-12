@@ -718,7 +718,7 @@ function setGanttRange(days) {
   document.querySelectorAll("#ganttRangeBtns button").forEach(btn => {
     btn.classList.toggle("active", days === null ? btn.dataset.days === "all" : Number(btn.dataset.days) === days);
   });
-  ganttStart = new Date(); ganttStart.setHours(0,0,0,0); ganttStart.setDate(ganttStart.getDate() - 4);
+  ganttStart = new Date(); ganttStart.setHours(0,0,0,0);
   const availW = (document.getElementById("ganttWrapper").clientWidth || 800) - G_LABEL_W;
   if (days === null) {
     let maxDate = new Date(ganttStart); maxDate.setDate(maxDate.getDate() + 30);
