@@ -72,10 +72,7 @@ def _fetch_member_names(member_ids):
             if not resp.ok:
                 continue
             data = resp.json()
-            m = data.get("result") or data.get("data") or {}
-            if not m and "results" in data:
-                m = (data["results"] or [{}])[0]
-            name = m.get("name", "")
+            name = data.get("name", "")
             if name:
                 names[mid] = name
         except Exception:

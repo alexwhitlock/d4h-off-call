@@ -813,7 +813,7 @@ function renderGantt() {
       const bw = x2 - x1;
       if (bw <= 0) continue;
       const r = Math.min(4, bw / 2, BAR_H / 2);
-      ctx.fillStyle = "rgba(59,130,246,0.72)";
+      ctx.fillStyle = "rgba(220,38,38,0.55)";
       ctx.beginPath();
       if (ctx.roundRect) ctx.roundRect(x1, y, bw, BAR_H, r);
       else ctx.rect(x1, y, bw, BAR_H);
