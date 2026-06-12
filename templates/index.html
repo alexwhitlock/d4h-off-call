@@ -470,11 +470,12 @@ const imtShadingPlugin = {
 /*  App state                                                           */
 /* ------------------------------------------------------------------ */
 
-let _data          = null;
-let _groups        = [];
+let _data            = null;
+let _groups          = [];
 let _selectedGroupId = null;
-let _favourites    = new Set();
-let _currentView   = "chart";
+let _favourites      = new Set();
+let _currentView     = "chart";
+let _activeGroupLoad = null;
 
 /* ------------------------------------------------------------------ */
 /*  Group dropdown                                                      */
@@ -568,23 +569,50 @@ document.addEventListener("keydown", e => {
 /*  Data loading                                                        */
 /* ------------------------------------------------------------------ */
 
-async function loadData(groupId) {
-  document.getElementById("metaInfo").textContent = "Last update: loading…";
-  const resp = await fetch(`/api/data?group_id=${encodeURIComponent(groupId)}`);
-  if (!resp.ok) {
-    const body = await resp.json().catch(() => ({}));
-    showError(body.error || `HTTP ${resp.status}`);
-    return;
-  }
-  _data = await resp.json();
-  document.getElementById("metaInfo").textContent = "Last update: " + formatDateTime(_data.generated);
+function loadData(groupId) {
+  if (_activeGroupLoad) { _activeGroupLoad.close(); _activeGroupLoad = null; }
+  document.getElementById("metaInfo").textContent = "Loading…";
+  document.getElementById("errorBanner").style.display = "none";
+  document.getElementById("refreshBtn").disabled = true;
 
-  const activeDays = document.querySelector(".range-btns button.active")?.dataset.days;
-  const maxDays = activeDays === "all" || !activeDays ? null : Number(activeDays);
-  buildCoverageChart(_data.entries, _data.group_size, maxDays);
+  return new Promise((resolve) => {
+    const es = new EventSource(`/api/data/stream?group_id=${encodeURIComponent(groupId)}`);
+    _activeGroupLoad = es;
 
-  if (_currentView === "gantt") initGantt();
-  buildDutiesTable(_data.entries);
+    es.onmessage = (ev) => {
+      if (_activeGroupLoad !== es) { es.close(); resolve(); return; }
+      let msg;
+      try { msg = JSON.parse(ev.data); } catch { return; }
+
+      if (msg.status) {
+        document.getElementById("metaInfo").textContent = msg.status;
+      } else if (msg.done) {
+        es.close(); _activeGroupLoad = null;
+        _data = msg.result;
+        document.getElementById("refreshBtn").disabled = false;
+        document.getElementById("metaInfo").textContent = "Last update: " + formatDateTime(_data.generated);
+        const activeDays = document.querySelector("#rangeBtns button.active")?.dataset.days;
+        const maxDays = activeDays === "all" || !activeDays ? null : Number(activeDays);
+        buildCoverageChart(_data.entries, _data.group_size, maxDays);
+        if (_currentView === "gantt") initGantt();
+        buildDutiesTable(_data.entries);
+        resolve();
+      } else if (msg.error) {
+        es.close(); _activeGroupLoad = null;
+        document.getElementById("refreshBtn").disabled = false;
+        showError(msg.error);
+        resolve();
+      }
+    };
+
+    es.onerror = () => {
+      if (_activeGroupLoad !== es) { es.close(); resolve(); return; }
+      es.close(); _activeGroupLoad = null;
+      document.getElementById("refreshBtn").disabled = false;
+      showError("Connection error while loading data");
+      resolve();
+    };
+  });
 }
 
 function showError(msg) {
@@ -1110,10 +1138,8 @@ function buildDutiesTable(entries) {
 async function manualRefresh() {
   if (!_selectedGroupId) return;
   const btn = document.getElementById("refreshBtn");
-  btn.disabled = true;
   btn.textContent = "Refreshing…";
   await loadData(_selectedGroupId);
-  btn.disabled = false;
   btn.textContent = "↻ Refresh";
 }
 

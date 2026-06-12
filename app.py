@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, render_template, request, Response, stream_with_context
 import requests
 import os
 import json
@@ -63,7 +63,6 @@ def _fetch_group_members(group_id):
 
 
 def _fetch_member_names(member_ids):
-    """Fetch names for specific member IDs via the members endpoint."""
     names = {}
     for mid in member_ids:
         try:
@@ -71,37 +70,12 @@ def _fetch_member_names(member_ids):
             resp = requests.get(url, headers=_headers(), timeout=10)
             if not resp.ok:
                 continue
-            data = resp.json()
-            name = data.get("name", "")
+            name = resp.json().get("name", "")
             if name:
                 names[mid] = name
         except Exception:
             pass
     return names
-
-
-def _fetch_off_duties(member_ids):
-    today = datetime.now(timezone.utc).date().isoformat()
-    after = f"{today}T00:00:00Z"
-    member_params = "&".join(f"member_id={mid}" for mid in member_ids)
-
-    duties = []
-    page = 0
-    while True:
-        url = (
-            f"{BASE_URL}/team/{TEAM_ID}/duties"
-            f"?after={after}&before=2099-12-31T23:59:59Z"
-            f"&{member_params}&page={page}&size=100&order=asc"
-        )
-        resp = requests.get(url, headers=_headers(), timeout=30)
-        resp.raise_for_status()
-        batch = resp.json().get("results", [])
-        if not batch:
-            break
-        duties.extend(batch)
-        page += 1
-
-    return [d for d in duties if d.get("type") == "OFF"]
 
 
 def _strip_entry(entry):
@@ -119,49 +93,86 @@ def _strip_entry(entry):
     }
 
 
-def get_data(group_id):
-    members = _fetch_group_members(group_id)
-    member_ids = [m["id"] for m in members]
+def _evt(data):
+    return f"data: {json.dumps(data)}\n\n"
 
-    if not member_ids:
-        return {
-            "generated": datetime.now(timezone.utc).isoformat(),
-            "group_size": 0,
-            "members": [],
-            "entries": []
-        }
 
-    raw_entries = _fetch_off_duties(member_ids)
+def _stream_data(group_id):
+    """Generator that yields SSE events for a group data load."""
+    try:
+        yield _evt({"status": "Fetching group members…"})
 
-    # Back-fill names from duty entries
-    name_map = {}
-    for e in raw_entries:
-        mid  = str((e.get("member") or {}).get("id", ""))
-        name = (e.get("member") or {}).get("name", "")
-        if mid and name:
-            name_map[mid] = name
+        members = _fetch_group_members(group_id)
+        member_ids = [m["id"] for m in members]
 
-    for m in members:
-        if not m["name"] and m["id"] in name_map:
-            m["name"] = name_map[m["id"]]
+        if not member_ids:
+            yield _evt({"done": True, "result": {
+                "generated": datetime.now(timezone.utc).isoformat(),
+                "group_size": 0, "members": [], "entries": []
+            }})
+            return
 
-    # Final fallback: fetch from members endpoint for anyone still unnamed
-    still_unnamed = [m["id"] for m in members if not m["name"]]
-    if still_unnamed:
-        fetched = _fetch_member_names(still_unnamed)
+        yield _evt({"status": f"Fetching off-call entries… ({len(members)} members)"})
+
+        today = datetime.now(timezone.utc).date().isoformat()
+        after = f"{today}T00:00:00Z"
+        member_params = "&".join(f"member_id={mid}" for mid in member_ids)
+
+        all_duties = []
+        page = 0
+        while True:
+            url = (
+                f"{BASE_URL}/team/{TEAM_ID}/duties"
+                f"?after={after}&before=2099-12-31T23:59:59Z"
+                f"&{member_params}&page={page}&size=100&order=asc"
+            )
+            resp = requests.get(url, headers=_headers(), timeout=30)
+            resp.raise_for_status()
+            batch = resp.json().get("results", [])
+            if not batch:
+                break
+            all_duties.extend(batch)
+            page += 1
+            yield _evt({"status": f"Fetching off-call entries… ({len(all_duties)} found)"})
+
+        raw_entries = [d for d in all_duties if d.get("type") == "OFF"]
+
+        # Back-fill names from duty entries
+        name_map = {}
+        for e in raw_entries:
+            mid  = str((e.get("member") or {}).get("id", ""))
+            name = (e.get("member") or {}).get("name", "")
+            if mid and name:
+                name_map[mid] = name
         for m in members:
-            if not m["name"] and m["id"] in fetched:
-                m["name"] = fetched[m["id"]]
+            if not m["name"] and m["id"] in name_map:
+                m["name"] = name_map[m["id"]]
 
-    return {
-        "generated": datetime.now(timezone.utc).isoformat(),
-        "group_size": len(members),
-        "members": members,
-        "entries": [
-            _strip_entry(e)
-            for e in sorted(raw_entries, key=lambda d: d.get("startsAt") or "")
-        ],
-    }
+        still_unnamed = [m["id"] for m in members if not m["name"]]
+        if still_unnamed:
+            yield _evt({"status": f"Fetching {len(still_unnamed)} member name(s)…"})
+            fetched = _fetch_member_names(still_unnamed)
+            for m in members:
+                if not m["name"] and m["id"] in fetched:
+                    m["name"] = fetched[m["id"]]
+
+        result = {
+            "generated": datetime.now(timezone.utc).isoformat(),
+            "group_size": len(members),
+            "members": members,
+            "entries": [
+                _strip_entry(e)
+                for e in sorted(raw_entries, key=lambda d: d.get("startsAt") or "")
+            ],
+        }
+        yield _evt({"done": True, "result": result})
+
+    except requests.HTTPError as e:
+        yield _evt({"error": f"D4H API error: {e.response.status_code}"})
+    except GeneratorExit:
+        pass
+    except Exception as e:
+        yield _evt({"error": str(e)})
 
 
 @app.route("/")
@@ -192,15 +203,36 @@ def api_groups():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/data/stream")
+def api_data_stream():
+    group_id = request.args.get("group_id", DEFAULT_GROUP_ID)
+    if not group_id:
+        def _err():
+            yield _evt({"error": "No group selected"})
+        return Response(stream_with_context(_err()), mimetype="text/event-stream",
+                        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+    return Response(
+        stream_with_context(_stream_data(group_id)),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
 @app.route("/api/data")
 def api_data():
+    """Non-streaming fallback (kept for direct API use)."""
     group_id = request.args.get("group_id", DEFAULT_GROUP_ID)
     if not group_id:
         return jsonify({"error": "No group selected"}), 400
     try:
-        return jsonify(get_data(group_id))
-    except requests.HTTPError as e:
-        return jsonify({"error": f"D4H API error: {e.response.status_code}"}), 502
+        events = list(_stream_data(group_id))
+        for raw in reversed(events):
+            msg = json.loads(raw.removeprefix("data: ").strip())
+            if "done" in msg:
+                return jsonify(msg["result"])
+            if "error" in msg:
+                return jsonify({"error": msg["error"]}), 502
+        return jsonify({"error": "No result produced"}), 500
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
