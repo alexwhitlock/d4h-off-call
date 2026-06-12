@@ -333,6 +333,9 @@
           <button onclick="ganttZoom(-1)" title="Zoom out">&#8722;</button>
           <button onclick="ganttZoom(1)"  title="Zoom in">&#43;</button>
         </div>
+        <div class="zoom-btns" id="ganttSortBtn" style="display:none">
+          <button id="btnGanttSort" onclick="toggleGanttSort()" title="Toggle sort">A&#8211;Z</button>
+        </div>
       </div>
     </div>
 
@@ -605,6 +608,7 @@ function setView(view) {
   document.getElementById("ganttHint").style.display     = view === "gantt" ? "" : "none";
   document.getElementById("ganttRangeBtns").style.display = view === "gantt" ? "" : "none";
   document.getElementById("ganttZoomBtns").style.display  = view === "gantt" ? "" : "none";
+  document.getElementById("ganttSortBtn").style.display   = view === "gantt" ? "" : "none";
   if (view === "gantt" && _data) initGantt();
 }
 
@@ -619,7 +623,7 @@ function setGanttRange(days) {
   document.querySelectorAll("#ganttRangeBtns button").forEach(btn => {
     btn.classList.toggle("active", days === null ? btn.dataset.days === "all" : Number(btn.dataset.days) === days);
   });
-  ganttStart = new Date(); ganttStart.setHours(0,0,0,0);
+  ganttStart = new Date(); ganttStart.setHours(0,0,0,0); ganttStart.setDate(ganttStart.getDate() - 4);
   const availW = (document.getElementById("ganttWrapper").clientWidth || 800) - G_LABEL_W;
   if (days === null) {
     let maxDate = new Date(ganttStart); maxDate.setDate(maxDate.getDate() + 30);
@@ -747,7 +751,7 @@ function buildCoverageChart(entries, groupSize, maxDays = null) {
 
 const G_LABEL_W = 160;
 const G_ROW_H   = 36;
-const G_HDR_H   = 46;
+const G_HDR_H   = 64;
 
 let ganttStart      = (() => { const d = new Date(); d.setHours(0,0,0,0); return d; })();
 let ganttPPD        = 0;
@@ -755,6 +759,7 @@ let ganttDragging   = false;
 let ganttDragX0     = 0;
 let ganttDragDate0  = null;
 let _ganttInited    = false;
+let _ganttSortMode  = "alpha"; // "alpha" | "next"
 
 function getMembersFromData(data) {
   if (data.members && data.members.length > 0) return data.members;
@@ -774,11 +779,40 @@ function sortByFirstName(members) {
   });
 }
 
+function sortGanttMembers(members, entries) {
+  if (_ganttSortMode === "alpha") return sortByFirstName(members);
+  // "next": members with an upcoming off-call first, sorted by soonest start; then the rest alpha
+  const todayMs = Date.now();
+  const nextOff = new Map();
+  for (const e of entries) {
+    if (e.type !== "OFF") continue;
+    const sMs = new Date(e.startsAt).getTime();
+    const eMs = new Date(e.endsAt || e.startsAt).getTime();
+    if (eMs < todayMs) continue; // already ended
+    const id = e.member?.id || e.member?.name || "";
+    if (!nextOff.has(id) || sMs < nextOff.get(id)) nextOff.set(id, sMs);
+  }
+  return members.slice().sort((a, b) => {
+    const aKey = a.id || a.name || "";
+    const bKey = b.id || b.name || "";
+    const aMs  = nextOff.get(aKey) ?? Infinity;
+    const bMs  = nextOff.get(bKey) ?? Infinity;
+    if (aMs !== bMs) return aMs - bMs;
+    return sortByFirstName([a, b]).indexOf(a) === 0 ? -1 : 1;
+  });
+}
+
+function toggleGanttSort() {
+  _ganttSortMode = _ganttSortMode === "alpha" ? "next" : "alpha";
+  document.getElementById("btnGanttSort").textContent = _ganttSortMode === "alpha" ? "A–Z" : "Next off";
+  renderGantt();
+}
+
 function initGantt() {
   if (!_data) return;
   const canvas  = document.getElementById("ganttCanvas");
   const wrapper = document.getElementById("ganttWrapper");
-  const members = sortByFirstName(getMembersFromData(_data));
+  const members = sortGanttMembers(getMembersFromData(_data), _data.entries || []);
   const dpr     = window.devicePixelRatio || 1;
   const cssW    = wrapper.clientWidth;
   const cssH    = G_HDR_H + members.length * G_ROW_H + 4;
@@ -808,8 +842,8 @@ function renderGantt() {
   ctx.save();
   ctx.scale(dpr, dpr);
 
-  const members   = sortByFirstName(getMembersFromData(_data));
   const entries   = _data.entries || [];
+  const members   = sortGanttMembers(getMembersFromData(_data), entries);
   const startMs   = ganttStart.getTime();
   const endDate   = new Date(startMs + (chartW / ganttPPD) * 86400000);
 
@@ -928,22 +962,37 @@ function renderGantt() {
         }
       }
 
+      /* Holiday name (clipped to column width) */
+      if (isHol) {
+        const cx = x + ganttPPD / 2;
+        if (cx > G_LABEL_W && cx < W) {
+          const cx1 = Math.max(x, G_LABEL_W), cx2 = Math.min(x + ganttPPD, W);
+          ctx.save();
+          ctx.beginPath(); ctx.rect(cx1 + 1, 18, cx2 - cx1 - 2, 18); ctx.clip();
+          ctx.textAlign = "center";
+          ctx.font = "bold 10px system-ui";
+          ctx.fillStyle = "#1d4ed8";
+          ctx.fillText(hmap[ymd], (cx1 + cx2) / 2, 27);
+          ctx.restore();
+        }
+      }
+
       /* Day number + weekday initial */
       if (showDay) {
         const cx = x + ganttPPD / 2;
         ctx.textAlign = "center";
         ctx.font = "11px system-ui";
         ctx.fillStyle = isHol ? "#1d4ed8" : (dow === 0 || dow === 6) ? "#9ca3af" : "#374151";
-        ctx.fillText(d.getDate(), cx, G_HDR_H - 16);
+        ctx.fillText(d.getDate(), cx, G_HDR_H - 18);
         ctx.font = "10px system-ui";
         ctx.fillStyle = "#9ca3af";
-        ctx.fillText(["S","M","T","W","T","F","S"][dow], cx, G_HDR_H - 4);
+        ctx.fillText(["S","M","T","W","T","F","S"][dow], cx, G_HDR_H - 5);
       } else if (showWeek && dow === 1) {
         /* Week start label */
         ctx.textAlign = "left";
         ctx.font = "11px system-ui";
         ctx.fillStyle = "#374151";
-        ctx.fillText(d.toLocaleDateString("en-CA", { month: "short", day: "numeric" }), Math.max(x + 2, G_LABEL_W + 2), G_HDR_H - 8);
+        ctx.fillText(d.toLocaleDateString("en-CA", { month: "short", day: "numeric" }), Math.max(x + 2, G_LABEL_W + 2), G_HDR_H - 10);
       }
 
       d.setDate(d.getDate() + 1);
@@ -963,7 +1012,7 @@ function renderGantt() {
       ctx.fillStyle = "#ef4444";
       ctx.textAlign = "center";
       ctx.font = "bold 10px system-ui";
-      ctx.fillText("Today", tx, G_HDR_H - 30);
+      ctx.fillText("Today", tx, G_HDR_H - 48);
     }
   }
 
