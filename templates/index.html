@@ -32,29 +32,30 @@
     background: var(--header-bg);
     background-image: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
     color: #f1f5f9;
-    padding: 36px 40px 28px;
+    padding: 12px 24px;
     border-bottom: 1px solid rgba(255,255,255,0.06);
   }
-  .header-top {
+  .header-row {
     display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
+    align-items: center;
+    gap: 14px;
     flex-wrap: wrap;
   }
-  .header h1 { margin: 0 0 4px; font-size: 1.75rem; font-weight: 700; letter-spacing: -0.02em; }
-  .header .subtitle { margin: 0; font-size: 0.9rem; color: #94a3b8; font-weight: 400; }
-  .header-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; padding-top: 4px; }
+  .header h1 { margin: 0; font-size: 1.15rem; font-weight: 700; letter-spacing: -0.01em; white-space: nowrap; }
+  .header-divider { width: 1px; height: 20px; background: rgba(255,255,255,0.15); flex-shrink: 0; }
+  .header-spacer { flex: 1; }
 
   #refreshBtn {
     background: rgba(255,255,255,0.08);
     color: #e2e8f0;
     border: 1px solid rgba(255,255,255,0.15);
     border-radius: 7px;
-    padding: 6px 14px;
-    font-size: 0.85rem;
+    padding: 5px 12px;
+    font-size: 0.82rem;
     cursor: pointer;
     transition: background 0.15s;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
   #refreshBtn:hover:not(:disabled) { background: rgba(255,255,255,0.15); }
   #refreshBtn:disabled { opacity: 0.45; cursor: default; }
@@ -63,19 +64,17 @@
   .group-row {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-top: 20px;
-    flex-wrap: wrap;
+    gap: 8px;
   }
-  .group-row label { font-size: 0.85rem; color: #94a3b8; white-space: nowrap; }
+  .group-row label { font-size: 0.82rem; color: #94a3b8; white-space: nowrap; }
 
-  .custom-select { position: relative; min-width: 240px; }
+  .custom-select { position: relative; min-width: 200px; }
 
   .custom-select-trigger {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 7px 12px;
+    padding: 5px 10px;
     background: rgba(255,255,255,0.08);
     border: 1px solid rgba(255,255,255,0.18);
     border-radius: 8px;
@@ -146,7 +145,23 @@
   .dropdown-item .star-icon:hover { color: #f59e0b; background: rgba(245,158,11,0.1); }
   .dropdown-item .star-icon.fav { color: #f59e0b; }
 
-  .meta { font-size: 0.8rem; color: #64748b; margin-top: 10px; }
+  .meta { font-size: 0.78rem; color: #64748b; white-space: nowrap; }
+
+  /* ---- Zoom buttons ---- */
+  .zoom-btns { display: flex; gap: 2px; }
+  .zoom-btns button {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px 11px;
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+  }
+  .zoom-btns button:hover { border-color: var(--accent); color: var(--accent); }
 
   /* ---- Content ---- */
   .content { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
@@ -271,28 +286,23 @@
 <body>
 
 <div class="header">
-  <div class="header-top">
-    <div>
-      <h1>On-Call Coverage</h1>
-      <p class="subtitle">off-call-sbo-ovsar.ca</p>
-    </div>
-    <div class="header-actions">
-      <button id="refreshBtn" onclick="manualRefresh()">&#8635; Refresh</button>
-    </div>
-  </div>
-
-  <div class="group-row">
-    <label>Group:</label>
-    <div class="custom-select" id="groupSelectWrapper">
-      <div class="custom-select-trigger" id="groupSelectTrigger" onclick="toggleGroupDropdown()">
-        <span id="groupSelectLabel">Loading groups&hellip;</span>
-        <span class="custom-select-arrow">&#9662;</span>
+  <div class="header-row">
+    <h1>On-Call Coverage</h1>
+    <div class="header-divider"></div>
+    <div class="group-row">
+      <label>Group:</label>
+      <div class="custom-select" id="groupSelectWrapper">
+        <div class="custom-select-trigger" id="groupSelectTrigger" onclick="toggleGroupDropdown()">
+          <span id="groupSelectLabel">Loading groups&hellip;</span>
+          <span class="custom-select-arrow">&#9662;</span>
+        </div>
+        <div class="custom-select-dropdown" id="groupSelectDropdown"></div>
       </div>
-      <div class="custom-select-dropdown" id="groupSelectDropdown"></div>
     </div>
+    <div class="header-spacer"></div>
+    <span class="meta" id="metaInfo">Last update: &mdash;</span>
+    <button id="refreshBtn" onclick="manualRefresh()">&#8635; Refresh</button>
   </div>
-
-  <div class="meta" id="metaInfo">Last update: &mdash;</div>
 </div>
 
 <div class="content">
@@ -308,10 +318,20 @@
           <button id="btnGantt" onclick="setView('gantt')">Gantt</button>
         </div>
         <div class="range-btns" id="rangeBtns">
-          <button onclick="setRange(30)"   data-days="30">1 Month</button>
-          <button onclick="setRange(90)"   data-days="90">3 Months</button>
-          <button onclick="setRange(180)"  data-days="180" class="active">6 Months</button>
-          <button onclick="setRange(null)" data-days="all">All Time</button>
+          <button onclick="setRange(30)"   data-days="30">1M</button>
+          <button onclick="setRange(90)"   data-days="90">3M</button>
+          <button onclick="setRange(180)"  data-days="180" class="active">6M</button>
+          <button onclick="setRange(null)" data-days="all">All</button>
+        </div>
+        <div class="range-btns" id="ganttRangeBtns" style="display:none">
+          <button onclick="setGanttRange(30)"   data-days="30">1M</button>
+          <button onclick="setGanttRange(90)"   data-days="90" class="active">3M</button>
+          <button onclick="setGanttRange(180)"  data-days="180">6M</button>
+          <button onclick="setGanttRange(null)" data-days="all">All</button>
+        </div>
+        <div class="zoom-btns" id="ganttZoomBtns" style="display:none">
+          <button onclick="ganttZoom(-1)" title="Zoom out">&#8722;</button>
+          <button onclick="ganttZoom(1)"  title="Zoom in">&#43;</button>
         </div>
       </div>
     </div>
@@ -323,7 +343,7 @@
     <div id="ganttWrapper" style="display:none">
       <canvas id="ganttCanvas"></canvas>
     </div>
-    <div id="ganttHint" style="display:none">Scroll to zoom &bull; Drag to pan</div>
+    <div id="ganttHint" style="display:none">Drag to pan &bull; scroll to move vertically</div>
   </div>
 
   <div class="card">
@@ -579,18 +599,46 @@ function setView(view) {
   _currentView = view;
   document.getElementById("btnChart").classList.toggle("active", view === "chart");
   document.getElementById("btnGantt").classList.toggle("active", view === "gantt");
-  document.getElementById("chartWrapper").style.display = view === "chart" ? "" : "none";
-  document.getElementById("rangeBtns").style.display   = view === "chart" ? "" : "none";
-  document.getElementById("ganttWrapper").style.display = view === "gantt" ? "" : "none";
-  document.getElementById("ganttHint").style.display    = view === "gantt" ? "" : "none";
+  document.getElementById("chartWrapper").style.display  = view === "chart" ? "" : "none";
+  document.getElementById("rangeBtns").style.display     = view === "chart" ? "" : "none";
+  document.getElementById("ganttWrapper").style.display  = view === "gantt" ? "" : "none";
+  document.getElementById("ganttHint").style.display     = view === "gantt" ? "" : "none";
+  document.getElementById("ganttRangeBtns").style.display = view === "gantt" ? "" : "none";
+  document.getElementById("ganttZoomBtns").style.display  = view === "gantt" ? "" : "none";
   if (view === "gantt" && _data) initGantt();
 }
 
 function setRange(maxDays) {
-  document.querySelectorAll(".range-btns button").forEach(btn => {
+  document.querySelectorAll("#rangeBtns button").forEach(btn => {
     btn.classList.toggle("active", maxDays === null ? btn.dataset.days === "all" : Number(btn.dataset.days) === maxDays);
   });
   if (_data) buildCoverageChart(_data.entries, _data.group_size, maxDays);
+}
+
+function setGanttRange(days) {
+  document.querySelectorAll("#ganttRangeBtns button").forEach(btn => {
+    btn.classList.toggle("active", days === null ? btn.dataset.days === "all" : Number(btn.dataset.days) === days);
+  });
+  ganttStart = new Date(); ganttStart.setHours(0,0,0,0);
+  const availW = (document.getElementById("ganttWrapper").clientWidth || 800) - G_LABEL_W;
+  if (days === null) {
+    let maxDate = new Date(ganttStart); maxDate.setDate(maxDate.getDate() + 30);
+    for (const e of (_data?.entries || [])) {
+      const d = new Date(e.endsAt || e.startsAt);
+      if (!isNaN(d) && d > maxDate) maxDate = d;
+    }
+    const totalDays = Math.max(30, Math.ceil((maxDate - ganttStart) / 86400000) + 7);
+    ganttPPD = availW / totalDays;
+  } else {
+    ganttPPD = availW / days;
+  }
+  renderGantt();
+}
+
+function ganttZoom(dir) {
+  ganttPPD = Math.max(1.5, Math.min(80, ganttPPD * (dir > 0 ? 1.4 : 1 / 1.4)));
+  document.querySelectorAll("#ganttRangeBtns button").forEach(b => b.classList.remove("active"));
+  renderGantt();
 }
 
 /* ------------------------------------------------------------------ */
@@ -701,11 +749,12 @@ const G_LABEL_W = 160;
 const G_ROW_H   = 36;
 const G_HDR_H   = 46;
 
-let ganttStart    = (() => { const d = new Date(); d.setHours(0,0,0,0); return d; })();
-let ganttPPD      = 0;
-let ganttDragging = false;
-let ganttDragX0   = 0;
-let ganttDragDate0 = null;
+let ganttStart      = (() => { const d = new Date(); d.setHours(0,0,0,0); return d; })();
+let ganttPPD        = 0;
+let ganttDragging   = false;
+let ganttDragX0     = 0;
+let ganttDragDate0  = null;
+let _ganttInited    = false;
 
 function getMembersFromData(data) {
   if (data.members && data.members.length > 0) return data.members;
@@ -739,8 +788,12 @@ function initGantt() {
   canvas.width        = cssW * dpr;
   canvas.height       = cssH * dpr;
 
-  if (ganttPPD === 0) ganttPPD = Math.max(2, (cssW - G_LABEL_W) / 90);
-  renderGantt();
+  if (!_ganttInited) {
+    _ganttInited = true;
+    setGanttRange(90);  // default: 3 months
+  } else {
+    renderGantt();
+  }
 }
 
 function renderGantt() {
@@ -944,21 +997,6 @@ function renderGantt() {
 (function() {
   const canvas = document.getElementById("ganttCanvas");
 
-  canvas.addEventListener("wheel", e => {
-    e.preventDefault();
-    const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
-    const newPPD = Math.max(1.5, Math.min(80, ganttPPD * factor));
-    const cx = e.offsetX - G_LABEL_W;
-    if (cx > 0) {
-      const cursorMs  = ganttStart.getTime() + cx * 86400000 / ganttPPD;
-      ganttPPD = newPPD;
-      ganttStart = new Date(cursorMs - cx * 86400000 / ganttPPD);
-    } else {
-      ganttPPD = newPPD;
-    }
-    renderGantt();
-  }, { passive: false });
-
   canvas.addEventListener("mousedown", e => {
     if (e.offsetX > G_LABEL_W) {
       ganttDragging = true;
@@ -976,32 +1014,21 @@ function renderGantt() {
   canvas.addEventListener("mouseup",    stopDrag);
   canvas.addEventListener("mouseleave", stopDrag);
 
-  /* Touch support */
-  let touchDist = 0;
+  /* Touch: single-finger drag to pan */
   canvas.addEventListener("touchstart", e => {
     if (e.touches.length === 1) {
       ganttDragging  = true;
       ganttDragX0    = e.touches[0].clientX;
       ganttDragDate0 = new Date(ganttStart);
-    } else if (e.touches.length === 2) {
-      ganttDragging = false;
-      touchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
     }
-    e.preventDefault();
-  }, { passive: false });
+  }, { passive: true });
   canvas.addEventListener("touchmove", e => {
     if (e.touches.length === 1 && ganttDragging) {
       const msShift = (e.touches[0].clientX - ganttDragX0) * 86400000 / ganttPPD;
       ganttStart = new Date(ganttDragDate0.getTime() - msShift);
       renderGantt();
-    } else if (e.touches.length === 2) {
-      const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-      ganttPPD = Math.max(1.5, Math.min(80, ganttPPD * d / touchDist));
-      touchDist = d;
-      renderGantt();
     }
-    e.preventDefault();
-  }, { passive: false });
+  }, { passive: true });
   canvas.addEventListener("touchend", () => { ganttDragging = false; });
 })();
 
