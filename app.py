@@ -62,6 +62,27 @@ def _fetch_group_members(group_id):
     return members
 
 
+def _fetch_member_names(member_ids):
+    """Fetch names for specific member IDs via the members endpoint."""
+    names = {}
+    for mid in member_ids:
+        try:
+            url = f"{BASE_URL}/team/{TEAM_ID}/members/{mid}"
+            resp = requests.get(url, headers=_headers(), timeout=10)
+            if not resp.ok:
+                continue
+            data = resp.json()
+            m = data.get("result") or data.get("data") or {}
+            if not m and "results" in data:
+                m = (data["results"] or [{}])[0]
+            name = m.get("name", "")
+            if name:
+                names[mid] = name
+        except Exception:
+            pass
+    return names
+
+
 def _fetch_off_duties(member_ids):
     today = datetime.now(timezone.utc).date().isoformat()
     after = f"{today}T00:00:00Z"
@@ -115,7 +136,7 @@ def get_data(group_id):
 
     raw_entries = _fetch_off_duties(member_ids)
 
-    # Back-fill names from duty entries for any members missing names
+    # Back-fill names from duty entries
     name_map = {}
     for e in raw_entries:
         mid  = str((e.get("member") or {}).get("id", ""))
@@ -126,6 +147,14 @@ def get_data(group_id):
     for m in members:
         if not m["name"] and m["id"] in name_map:
             m["name"] = name_map[m["id"]]
+
+    # Final fallback: fetch from members endpoint for anyone still unnamed
+    still_unnamed = [m["id"] for m in members if not m["name"]]
+    if still_unnamed:
+        fetched = _fetch_member_names(still_unnamed)
+        for m in members:
+            if not m["name"] and m["id"] in fetched:
+                m["name"] = fetched[m["id"]]
 
     return {
         "generated": datetime.now(timezone.utc).isoformat(),
