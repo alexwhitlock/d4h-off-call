@@ -1013,7 +1013,7 @@ function renderGantt() {
   {
     let d = new Date(ganttStart); d.setHours(0,0,0,0);
     let lastMonthX = -999;
-    let lastHolLabelRight = G_LABEL_W;
+    const holRowRight = [G_LABEL_W, G_LABEL_W]; // right-edge tracker for y=27 and y=39
     while (d <= endDate) {
       const x   = dateToX(d);
       const dow  = d.getDay();
@@ -1034,17 +1034,19 @@ function renderGantt() {
         }
       }
 
-      /* Holiday name — skip if too close to previous label */
+      /* Holiday name — stagger to lower row if top row is occupied */
       if (isHol && ganttPPD >= 5) {
         const hx = Math.max(x + 2, G_LABEL_W + 2);
-        if (hx < W - 12 && hx > lastHolLabelRight + 6) {
+        if (hx < W - 12) {
           ctx.textAlign = "left";
           ctx.font = "bold 10px system-ui";
           ctx.fillStyle = "#1d4ed8";
           const text = hmap[ymd];
           const drawn = Math.min(ctx.measureText(text).width, 130);
-          ctx.fillText(text, hx, 27, 130);
-          lastHolLabelRight = hx + drawn;
+          const row = hx > holRowRight[0] + 4 ? 0 : 1;
+          const labelY = row === 0 ? 27 : 39;
+          ctx.fillText(text, hx, labelY, 130);
+          holRowRight[row] = hx + drawn;
         }
       }
 
