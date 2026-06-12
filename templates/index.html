@@ -269,8 +269,17 @@
     cursor: grab;
   }
   #ganttWrapper:active { cursor: grabbing; }
-  #ganttHeaderCanvas { display: block; width: 100%; position: sticky; top: 0; z-index: 2; cursor: grab; }
+  #ganttHeaderWrap { position: sticky; top: 0; z-index: 2; }
+  #ganttHeaderCanvas { display: block; width: 100%; cursor: grab; }
   #ganttHeaderCanvas:active { cursor: grabbing; }
+  #ganttSortOverlay {
+    position: absolute; inset: 0 auto 0 0; width: 159px;
+    background: transparent; border: none; border-right: 1px solid var(--border);
+    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;
+    font-size: 0.75rem; font-weight: 600; color: var(--text-muted); letter-spacing: 0.02em;
+    transition: background 0.1s, color 0.1s;
+  }
+  #ganttSortOverlay:hover { background: rgba(0,0,0,0.03); color: var(--accent); }
   #ganttCanvas { display: block; width: 100%; }
   #ganttHint { font-size: 0.73rem; color: var(--text-muted); text-align: right; margin-top: 6px; }
 
@@ -355,9 +364,6 @@
           <button onclick="ganttZoom(-1)" title="Zoom out">&#8722;</button>
           <button onclick="ganttZoom(1)"  title="Zoom in">&#43;</button>
         </div>
-        <div class="zoom-btns" id="ganttSortBtn" style="display:none">
-          <button id="btnGanttSort" onclick="toggleGanttSort()" title="Toggle sort">A&#8211;Z</button>
-        </div>
       </div>
     </div>
 
@@ -371,7 +377,10 @@
     </div>
 
     <div id="ganttWrapper" style="display:none">
-      <canvas id="ganttHeaderCanvas"></canvas>
+      <div id="ganttHeaderWrap">
+        <canvas id="ganttHeaderCanvas"></canvas>
+        <button id="ganttSortOverlay" onclick="toggleGanttSort()">&#8597;&nbsp;A&#8211;Z</button>
+      </div>
       <canvas id="ganttCanvas"></canvas>
     </div>
     <div id="ganttHint" style="display:none">Drag to pan &bull; scroll to move vertically</div>
@@ -676,7 +685,6 @@ function setView(view) {
   document.getElementById("rangeBtns").style.display      = view === "chart" ? "" : "none";
   document.getElementById("ganttRangeBtns").style.display = view === "gantt" ? "" : "none";
   document.getElementById("ganttZoomBtns").style.display  = view === "gantt" ? "" : "none";
-  document.getElementById("ganttSortBtn").style.display   = view === "gantt" ? "" : "none";
   const loading = document.getElementById("loadingView").style.display !== "none";
   if (!loading) {
     document.getElementById("chartWrapper").style.display = view === "chart" ? "" : "none";
@@ -878,7 +886,8 @@ function sortGanttMembers(members, entries) {
 
 function toggleGanttSort() {
   _ganttSortMode = _ganttSortMode === "alpha" ? "next" : "alpha";
-  document.getElementById("btnGanttSort").textContent = _ganttSortMode === "alpha" ? "A–Z" : "Next off";
+  document.getElementById("ganttSortOverlay").innerHTML = _ganttSortMode === "alpha"
+    ? "&#8597;&nbsp;A&#8211;Z" : "&#8597;&nbsp;Next";
   renderGantt();
 }
 
