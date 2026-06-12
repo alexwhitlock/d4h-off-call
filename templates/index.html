@@ -585,7 +585,8 @@ function loadData(groupId) {
       try { msg = JSON.parse(ev.data); } catch { return; }
 
       if (msg.status) {
-        document.getElementById("metaInfo").textContent = msg.status;
+        const pct = msg.percent !== undefined ? ` ${msg.percent}%` : "";
+        document.getElementById("metaInfo").textContent = msg.status + pct;
       } else if (msg.done) {
         es.close(); _activeGroupLoad = null;
         _data = msg.result;
@@ -990,8 +991,8 @@ function renderGantt() {
         }
       }
 
-      /* Holiday name (clipped to column width) */
-      if (isHol) {
+      /* Holiday name — only when columns are wide enough to read */
+      if (isHol && ganttPPD >= 30) {
         const cx = x + ganttPPD / 2;
         if (cx > G_LABEL_W && cx < W) {
           const cx1 = Math.max(x, G_LABEL_W), cx2 = Math.min(x + ganttPPD, W);
@@ -1037,10 +1038,14 @@ function renderGantt() {
       ctx.setLineDash([4, 3]);
       ctx.beginPath(); ctx.moveTo(tx, G_HDR_H); ctx.lineTo(tx, H); ctx.stroke();
       ctx.setLineDash([]);
-      ctx.fillStyle = "#ef4444";
+      /* "Today" badge at the bottom of the header — white bg knocks out day labels */
+      ctx.font = "bold 9px system-ui";
       ctx.textAlign = "center";
-      ctx.font = "bold 10px system-ui";
-      ctx.fillText("Today", tx, G_HDR_H - 48);
+      const lw = ctx.measureText("Today").width;
+      ctx.fillStyle = "rgba(255,255,255,0.92)";
+      ctx.fillRect(tx - lw / 2 - 3, G_HDR_H - 14, lw + 6, 13);
+      ctx.fillStyle = "#ef4444";
+      ctx.fillText("Today", tx, G_HDR_H - 4);
     }
   }
 

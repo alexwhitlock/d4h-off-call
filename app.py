@@ -112,13 +112,14 @@ def _stream_data(group_id):
             }})
             return
 
-        yield _evt({"status": f"Fetching off-call entries… ({len(members)} members)"})
+        yield _evt({"status": f"Fetching off-call entries… ({len(members)} members)", "percent": 0})
 
         today = datetime.now(timezone.utc).date().isoformat()
         after = f"{today}T00:00:00Z"
         member_params = "&".join(f"member_id={mid}" for mid in member_ids)
 
         all_duties = []
+        total_duties = None
         page = 0
         while True:
             url = (
@@ -128,12 +129,19 @@ def _stream_data(group_id):
             )
             resp = requests.get(url, headers=_headers(), timeout=30)
             resp.raise_for_status()
-            batch = resp.json().get("results", [])
+            body = resp.json()
+            batch = body.get("results", [])
             if not batch:
                 break
             all_duties.extend(batch)
+            if total_duties is None:
+                total_duties = body.get("count") or body.get("total") or None
             page += 1
-            yield _evt({"status": f"Fetching off-call entries… ({len(all_duties)} found)"})
+            if total_duties:
+                pct = min(99, round(len(all_duties) / total_duties * 100))
+                yield _evt({"status": f"Fetching off-call entries… ({len(all_duties)} / {total_duties})", "percent": pct})
+            else:
+                yield _evt({"status": f"Fetching off-call entries… ({len(all_duties)} found)"})
 
         raw_entries = [d for d in all_duties if d.get("type") == "OFF"]
 
@@ -150,11 +158,22 @@ def _stream_data(group_id):
 
         still_unnamed = [m["id"] for m in members if not m["name"]]
         if still_unnamed:
-            yield _evt({"status": f"Fetching {len(still_unnamed)} member name(s)…"})
-            fetched = _fetch_member_names(still_unnamed)
-            for m in members:
-                if not m["name"] and m["id"] in fetched:
-                    m["name"] = fetched[m["id"]]
+            total_unnamed = len(still_unnamed)
+            yield _evt({"status": f"Fetching member names… (0 / {total_unnamed})", "percent": 0})
+            for i, mid in enumerate(still_unnamed):
+                try:
+                    url = f"{BASE_URL}/team/{TEAM_ID}/members/{mid}"
+                    r = requests.get(url, headers=_headers(), timeout=10)
+                    if r.ok:
+                        name = r.json().get("name", "")
+                        if name:
+                            for m in members:
+                                if m["id"] == mid:
+                                    m["name"] = name
+                except Exception:
+                    pass
+                pct = round((i + 1) / total_unnamed * 100)
+                yield _evt({"status": f"Fetching member names… ({i + 1} / {total_unnamed})", "percent": pct})
 
         result = {
             "generated": datetime.now(timezone.utc).isoformat(),
