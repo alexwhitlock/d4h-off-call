@@ -1013,6 +1013,7 @@ function renderGantt() {
   {
     let d = new Date(ganttStart); d.setHours(0,0,0,0);
     let lastMonthX = -999;
+    let lastHolLabelRight = G_LABEL_W;
     while (d <= endDate) {
       const x   = dateToX(d);
       const dow  = d.getDay();
@@ -1033,14 +1034,17 @@ function renderGantt() {
         }
       }
 
-      /* Holiday name — left-aligned from column start, maxWidth prevents overflow */
+      /* Holiday name — skip if too close to previous label */
       if (isHol && ganttPPD >= 5) {
         const hx = Math.max(x + 2, G_LABEL_W + 2);
-        if (hx < W - 12) {
+        if (hx < W - 12 && hx > lastHolLabelRight + 6) {
           ctx.textAlign = "left";
           ctx.font = "bold 10px system-ui";
           ctx.fillStyle = "#1d4ed8";
-          ctx.fillText(hmap[ymd], hx, 27, Math.min(W - hx - 4, 130));
+          const text = hmap[ymd];
+          const drawn = Math.min(ctx.measureText(text).width, 130);
+          ctx.fillText(text, hx, 27, 130);
+          lastHolLabelRight = hx + drawn;
         }
       }
 
@@ -1066,28 +1070,16 @@ function renderGantt() {
     }
   }
 
-  /* Today marker */
+  /* Today marker — grey dashed line, no label */
   {
     const today = new Date(); today.setHours(0,0,0,0);
     const tx = dateToX(today);
     if (tx >= G_LABEL_W && tx <= W) {
-      ctx.strokeStyle = "#ef4444";
+      ctx.strokeStyle = "rgba(100,116,139,0.6)";
       ctx.lineWidth = 1.5;
       ctx.setLineDash([4, 3]);
       ctx.beginPath(); ctx.moveTo(tx, G_HDR_H); ctx.lineTo(tx, H); ctx.stroke();
       ctx.setLineDash([]);
-      /* "Today" label placed in the holiday-name zone (y=18–36), which is free on
-         non-holiday days. Skip the label if today is a holiday (text would collide). */
-      const todayYmd = ymdFromDate(today);
-      if (!hmap[todayYmd]) {
-        ctx.font = "bold 9px system-ui";
-        ctx.textAlign = "left";
-        const lw = ctx.measureText("Today").width;
-        ctx.fillStyle = "rgba(255,255,255,0.9)";
-        ctx.fillRect(tx + 1, 18, lw + 6, 17);
-        ctx.fillStyle = "#ef4444";
-        ctx.fillText("Today", tx + 3, 30);
-      }
     }
   }
 
