@@ -235,6 +235,26 @@
   .range-btns button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
   /* ---- Chart ---- */
+  /* ---- Loading view ---- */
+  #loadingView {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 320px;
+    gap: 14px;
+  }
+  .loading-spinner {
+    width: 38px;
+    height: 38px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #loadingStatusText { font-size: 0.85rem; color: var(--text-muted); }
+
   #chartWrapper { width: 100%; height: 360px; position: relative; }
 
   /* ---- Gantt ---- */
@@ -339,7 +359,12 @@
       </div>
     </div>
 
-    <div id="chartWrapper">
+    <div id="loadingView">
+      <div class="loading-spinner"></div>
+      <div id="loadingStatusText">Loading…</div>
+    </div>
+
+    <div id="chartWrapper" style="display:none">
       <canvas id="coverageChart"></canvas>
     </div>
 
@@ -349,7 +374,7 @@
     <div id="ganttHint" style="display:none">Drag to pan &bull; scroll to move vertically</div>
   </div>
 
-  <div class="card">
+  <div class="card" id="dutiesCard" style="display:none">
     <div class="card-header">
       <h2>Upcoming Off-Call Entries</h2>
     </div>
@@ -571,9 +596,11 @@ document.addEventListener("keydown", e => {
 
 function loadData(groupId) {
   if (_activeGroupLoad) { _activeGroupLoad.close(); _activeGroupLoad = null; }
-  document.getElementById("metaInfo").textContent = "Loading…";
   document.getElementById("errorBanner").style.display = "none";
   document.getElementById("refreshBtn").disabled = true;
+  document.getElementById("metaInfo").textContent = "Loading…";
+  document.getElementById("loadingStatusText").textContent = "Loading…";
+  _setLoadingVisible(true);
 
   return new Promise((resolve) => {
     const es = new EventSource(`/api/data/stream?group_id=${encodeURIComponent(groupId)}`);
@@ -586,7 +613,9 @@ function loadData(groupId) {
 
       if (msg.status) {
         const pct = msg.percent !== undefined ? ` ${msg.percent}%` : "";
-        document.getElementById("metaInfo").textContent = msg.status + pct;
+        const text = msg.status + pct;
+        document.getElementById("metaInfo").textContent = text;
+        document.getElementById("loadingStatusText").textContent = text;
       } else if (msg.done) {
         es.close(); _activeGroupLoad = null;
         _data = msg.result;
@@ -597,6 +626,7 @@ function loadData(groupId) {
         buildCoverageChart(_data.entries, _data.group_size, maxDays);
         if (_currentView === "gantt") initGantt();
         buildDutiesTable(_data.entries);
+        _setLoadingVisible(false);
         resolve();
       } else if (msg.error) {
         es.close(); _activeGroupLoad = null;
@@ -616,7 +646,16 @@ function loadData(groupId) {
   });
 }
 
+function _setLoadingVisible(on) {
+  document.getElementById("loadingView").style.display = on ? "flex" : "none";
+  document.getElementById("chartWrapper").style.display = (!on && _currentView === "chart") ? "" : "none";
+  document.getElementById("ganttWrapper").style.display = (!on && _currentView === "gantt") ? "" : "none";
+  document.getElementById("ganttHint").style.display   = (!on && _currentView === "gantt") ? "" : "none";
+  document.getElementById("dutiesCard").style.display  = on ? "none" : "";
+}
+
 function showError(msg) {
+  _setLoadingVisible(false);
   const el = document.getElementById("errorBanner");
   el.textContent = "Error: " + msg;
   el.style.display = "block";
@@ -631,14 +670,17 @@ function setView(view) {
   _currentView = view;
   document.getElementById("btnChart").classList.toggle("active", view === "chart");
   document.getElementById("btnGantt").classList.toggle("active", view === "gantt");
-  document.getElementById("chartWrapper").style.display  = view === "chart" ? "" : "none";
-  document.getElementById("rangeBtns").style.display     = view === "chart" ? "" : "none";
-  document.getElementById("ganttWrapper").style.display  = view === "gantt" ? "" : "none";
-  document.getElementById("ganttHint").style.display     = view === "gantt" ? "" : "none";
+  document.getElementById("rangeBtns").style.display      = view === "chart" ? "" : "none";
   document.getElementById("ganttRangeBtns").style.display = view === "gantt" ? "" : "none";
   document.getElementById("ganttZoomBtns").style.display  = view === "gantt" ? "" : "none";
   document.getElementById("ganttSortBtn").style.display   = view === "gantt" ? "" : "none";
-  if (view === "gantt" && _data) initGantt();
+  const loading = document.getElementById("loadingView").style.display !== "none";
+  if (!loading) {
+    document.getElementById("chartWrapper").style.display = view === "chart" ? "" : "none";
+    document.getElementById("ganttWrapper").style.display = view === "gantt" ? "" : "none";
+    document.getElementById("ganttHint").style.display    = view === "gantt" ? "" : "none";
+    if (view === "gantt" && _data) initGantt();
+  }
 }
 
 function setRange(maxDays) {
