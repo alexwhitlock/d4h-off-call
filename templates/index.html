@@ -483,7 +483,7 @@
 
   <div id="errorBanner"></div>
 
-  <div class="card">
+  <div class="card" id="coverageCard">
     <div class="card-header">
       <h2>Coverage Overview</h2>
       <div class="card-header-right">
@@ -1634,6 +1634,7 @@ async function loadMe() {
         if (btn) btn.style.display = "";
         if (new URLSearchParams(window.location.search).get("my") === "1") {
           _tableFilter = _me?.member?.id || null;
+          document.getElementById("coverageCard").style.display = "none";
           document.getElementById("dutiesCardTitle").textContent = `${name}'s Entries`;
           const sel = document.getElementById("memberFilter");
           if (sel) sel.style.display = "none";
