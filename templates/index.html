@@ -472,7 +472,7 @@
     <div class="header-spacer"></div>
     <span class="meta" id="metaInfo">Last update: &mdash;</span>
     <span id="headerUserName"></span>
-    <button id="myEntriesBtn" onclick="toggleMyEntriesFilter()" style="display:none">My Entries</button>
+    <button id="myEntriesBtn" onclick="goMyEntries()" style="display:none">My Entries</button>
     <button id="addOffCallBtn" onclick="openAddOffCall()">+ Off-Call</button>
     <button id="addUnavailBtn" onclick="openAddUnavail()">+ Unavailable to Deploy</button>
     <button id="refreshBtn" onclick="manualRefresh()">&#8635; Refresh</button>
@@ -537,8 +537,9 @@
 
   <div class="card" id="dutiesCard" style="display:none">
     <div class="card-header">
-      <h2>Upcoming Entries</h2>
+      <h2 id="dutiesCardTitle">Upcoming Entries</h2>
       <div class="card-header-right">
+        <a id="allEntriesLink" href="/" style="display:none;font-size:0.85rem;color:var(--accent);text-decoration:none;margin-right:8px">&larr; All Entries</a>
         <select id="memberFilter" class="table-filter-select" onchange="setMemberFilter(this.value)">
           <option value="">All Members</option>
         </select>
@@ -1504,6 +1505,10 @@ new ResizeObserver(() => {
 /*  Duties table                                                        */
 /* ------------------------------------------------------------------ */
 
+function goMyEntries() {
+  window.location.href = "/?my=1";
+}
+
 function toggleMyEntriesFilter() {
   const myId = _me?.member?.id || null;
   if (!myId) return;
@@ -1627,6 +1632,15 @@ async function loadMe() {
         if (el) el.textContent = name;
         const btn = document.getElementById("myEntriesBtn");
         if (btn) btn.style.display = "";
+        if (new URLSearchParams(window.location.search).get("my") === "1") {
+          _tableFilter = _me?.member?.id || null;
+          document.getElementById("dutiesCardTitle").textContent = `${name}'s Entries`;
+          const sel = document.getElementById("memberFilter");
+          if (sel) sel.style.display = "none";
+          const link = document.getElementById("allEntriesLink");
+          if (link) link.style.display = "";
+          if (btn) btn.classList.add("active");
+        }
       } else {
         const btn = document.getElementById("myEntriesBtn");
         if (btn) btn.style.display = "none";
