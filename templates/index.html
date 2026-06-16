@@ -1490,7 +1490,7 @@ async function manualRefresh() {
   btn.textContent = "↻ Refresh";
 }
 
-loadMe();
+const _mePromise = loadMe();
 loadAllMembers();
 loadGroups();
 
@@ -1526,8 +1526,9 @@ async function loadUnavailable() {
 
 /* ---- Modal: create / edit ---- */
 
-function openAddUnavail() {
+async function openAddUnavail() {
   if (!_allMembers.length) { alert("Members are still loading, please try again in a moment."); return; }
+  await _mePromise;
   _editingId = null;
   document.getElementById("unavailModalTitle").textContent = "Add Unavailable to Deploy";
   document.getElementById("memberPickerSection").style.display = "";
