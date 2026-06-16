@@ -319,6 +319,73 @@
   tr:hover td { background: rgba(0,0,0,0.015); }
   .member-name { font-weight: 500; }
   .notes-cell  { color: var(--text-muted); font-size: 0.82rem; }
+
+  /* ---- Badges ---- */
+  .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.03em; white-space: nowrap; }
+  .badge-off-call { background: rgba(220,38,38,0.1); color: #dc2626; }
+  .badge-unavail  { background: rgba(217,119,6,0.12); color: #b45309; }
+
+  /* ---- Table action buttons ---- */
+  .btn-action { background: transparent; border: 1px solid var(--border); border-radius: 5px; padding: 3px 9px; font-size: 0.75rem; cursor: pointer; transition: background 0.12s, color 0.12s, border-color 0.12s; color: var(--text-muted); white-space: nowrap; }
+  .btn-action:hover         { border-color: var(--accent); color: var(--accent); }
+  .btn-action.danger:hover  { border-color: #dc2626; color: #dc2626; }
+  .btn-action.history:hover { border-color: #7c3aed; color: #7c3aed; }
+  .actions-cell { display: flex; gap: 5px; flex-wrap: nowrap; }
+
+  /* ---- Add unavailable button ---- */
+  #addUnavailBtn { background: rgba(217,119,6,0.1); color: #b45309; border: 1px solid rgba(217,119,6,0.3); border-radius: 7px; padding: 5px 12px; font-size: 0.82rem; font-weight: 500; cursor: pointer; transition: background 0.15s; white-space: nowrap; }
+  #addUnavailBtn:hover { background: rgba(217,119,6,0.18); }
+
+  /* ---- Modals ---- */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .modal-box { background: #fff; border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); width: 100%; max-width: 520px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; }
+  .modal-box-sm { max-width: 440px; }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px 14px; border-bottom: 1px solid var(--border); }
+  .modal-header h3 { margin: 0; font-size: 1rem; font-weight: 600; }
+  .modal-close { background: none; border: none; font-size: 1.4rem; line-height: 1; cursor: pointer; color: var(--text-muted); padding: 0 4px; }
+  .modal-close:hover { color: var(--text); }
+  .modal-body { padding: 18px 22px; overflow-y: auto; flex: 1; }
+  .modal-footer { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 22px; border-top: 1px solid var(--border); }
+
+  /* ---- Form elements ---- */
+  .form-group { margin-bottom: 14px; }
+  .form-group label { display: block; font-size: 0.78rem; font-weight: 600; color: var(--text-muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .form-group input[type="date"], .form-group input[type="text"], .form-group textarea { width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: 7px; font-size: 0.875rem; font-family: inherit; background: #fff; color: var(--text); box-sizing: border-box; }
+  .form-group input:focus, .form-group textarea:focus { outline: none; border-color: var(--accent); }
+  .form-row { display: flex; gap: 12px; margin-bottom: 14px; }
+  .form-row .form-group { flex: 1; margin-bottom: 0; }
+  .btn-cancel  { background: #f1f5f9; border: 1px solid var(--border); border-radius: 7px; padding: 7px 18px; font-size: 0.875rem; cursor: pointer; color: var(--text-muted); }
+  .btn-cancel:hover  { background: #e2e8f0; }
+  .btn-primary { background: var(--accent); border: none; border-radius: 7px; padding: 7px 18px; font-size: 0.875rem; font-weight: 500; cursor: pointer; color: #fff; transition: background 0.12s; }
+  .btn-primary:hover { background: #1d4ed8; }
+  .btn-primary:disabled { opacity: 0.5; cursor: default; }
+
+  /* ---- Member picker ---- */
+  .member-search-input { width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: 7px; font-size: 0.875rem; font-family: inherit; box-sizing: border-box; margin-bottom: 8px; }
+  .member-search-input:focus { outline: none; border-color: var(--accent); }
+  .member-picker-list { max-height: 190px; overflow-y: auto; border: 1px solid var(--border); border-radius: 7px; }
+  .picker-item { display: flex; align-items: center; gap: 9px; padding: 7px 11px; cursor: pointer; font-size: 0.875rem; transition: background 0.1s; }
+  .picker-item:hover { background: #f3f4f6; }
+  .picker-item input[type="checkbox"] { cursor: pointer; accent-color: var(--accent); flex-shrink: 0; }
+  .picker-item label { cursor: pointer; flex: 1; }
+  .picker-count { font-size: 0.78rem; color: var(--text-muted); margin-top: 6px; text-align: right; }
+  .picker-count strong { color: var(--accent); }
+  .member-label-static { font-size: 0.9rem; font-weight: 500; color: var(--text); padding: 7px 10px; background: #f8fafc; border: 1px solid var(--border); border-radius: 7px; }
+
+  /* ---- History timeline ---- */
+  .history-meta { font-size: 0.83rem; color: var(--text-muted); margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--border); line-height: 1.6; }
+  .history-meta strong { color: var(--text); }
+  .history-event { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 0.83rem; }
+  .history-event:last-child { border-bottom: none; }
+  .history-dot { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; flex-shrink: 0; }
+  .history-dot.created { background: #dcfce7; color: #16a34a; }
+  .history-dot.edited  { background: #dbeafe; color: #2563eb; }
+  .history-dot.deleted { background: #fee2e2; color: #dc2626; }
+  .history-content { flex: 1; }
+  .history-by { font-weight: 500; color: var(--text); }
+  .history-at { color: var(--text-muted); font-size: 0.77rem; }
+  .history-changes { margin-top: 5px; display: flex; flex-direction: column; gap: 3px; }
+  .history-change-item { font-size: 0.77rem; font-family: monospace; background: #f8fafc; padding: 2px 6px; border-radius: 3px; border: 1px solid var(--border); display: inline-block; }
 </style>
 </head>
 <body>
@@ -396,16 +463,73 @@
       </div>
       <canvas id="ganttCanvas"></canvas>
     </div>
-    <div id="ganttHint" style="display:none">Drag to pan &bull; scroll to move vertically</div>
+    <div id="ganttHint" style="display:none">Drag to pan &bull; scroll to move vertically &nbsp;&bull;&nbsp; <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(220,38,38,0.55);vertical-align:middle"></span> Off-Call &nbsp;<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(217,119,6,0.55);vertical-align:middle"></span> Unavailable to Deploy</div>
   </div>
 
   <div class="card" id="dutiesCard" style="display:none">
     <div class="card-header">
-      <h2>Upcoming Off-Call Entries</h2>
+      <h2>Upcoming Entries</h2>
+      <div class="card-header-right">
+        <button id="addUnavailBtn" onclick="openAddUnavail()">+ Unavailable to Deploy</button>
+      </div>
     </div>
     <table id="dutiesTable"></table>
   </div>
 
+</div>
+
+<!-- Create / Edit Unavailable Modal -->
+<div id="unavailModal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeUnavailModal()">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="unavailModalTitle">Add Unavailable to Deploy</h3>
+      <button class="modal-close" onclick="closeUnavailModal()">&#10005;</button>
+    </div>
+    <div class="modal-body">
+      <div id="memberPickerSection" class="form-group">
+        <label>Members</label>
+        <input type="text" class="member-search-input" id="memberSearch" placeholder="Search members&hellip;" oninput="filterMemberPicker()">
+        <div class="member-picker-list" id="memberPickerList"></div>
+        <div class="picker-count">Selected: <strong id="pickerCount">0</strong></div>
+      </div>
+      <div id="memberLabelSection" class="form-group" style="display:none">
+        <label>Member</label>
+        <div class="member-label-static" id="memberLabelText"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Start Date</label>
+          <input type="date" id="unavailStart">
+        </div>
+        <div class="form-group">
+          <label>End Date</label>
+          <input type="date" id="unavailEnd">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Notes (optional)</label>
+        <textarea id="unavailNotes" rows="3" placeholder="Add any notes&hellip;" style="resize:vertical"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeUnavailModal()">Cancel</button>
+      <button class="btn-primary" id="unavailSubmitBtn" onclick="submitUnavail()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- History Modal -->
+<div id="historyModal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeHistoryModal()">
+  <div class="modal-box modal-box-sm">
+    <div class="modal-header">
+      <h3>Entry History</h3>
+      <button class="modal-close" onclick="closeHistoryModal()">&#10005;</button>
+    </div>
+    <div class="modal-body">
+      <div id="historyMeta" class="history-meta"></div>
+      <div id="historyTimeline"></div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -646,12 +770,14 @@ function loadData(groupId) {
         _data = msg.result;
         document.getElementById("refreshBtn").disabled = false;
         document.getElementById("metaInfo").textContent = "Last update: " + formatDateTime(_data.generated);
-        const activeDays = document.querySelector("#rangeBtns button.active")?.dataset.days;
-        const maxDays = activeDays === "all" || !activeDays ? null : Number(activeDays);
-        buildCoverageChart(_data.entries, _data.group_size, maxDays);
-        if (_currentView === "gantt") initGantt();
-        buildDutiesTable(_data.entries);
-        _setLoadingVisible(false);
+        loadUnavailable().then(() => {
+          const activeDays = document.querySelector("#rangeBtns button.active")?.dataset.days;
+          const maxDays = activeDays === "all" || !activeDays ? null : Number(activeDays);
+          buildCoverageChart(_data.entries, _data.group_size, maxDays);
+          if (_currentView === "gantt") initGantt();
+          buildDutiesTable(_data.entries);
+          _setLoadingVisible(false);
+        });
         resolve();
       } else if (msg.error) {
         es.close(); _activeGroupLoad = null;
@@ -714,6 +840,7 @@ function setRange(maxDays) {
   if (_data) buildCoverageChart(_data.entries, _data.group_size, maxDays);
 }
 
+
 function setGanttRange(days) {
   document.querySelectorAll("#ganttRangeBtns button").forEach(btn => {
     btn.classList.toggle("active", days === null ? btn.dataset.days === "all" : Number(btn.dataset.days) === days);
@@ -774,6 +901,24 @@ function buildCoverageChart(entries, groupSize, maxDays = null) {
     days.forEach((d, i) => { if (d >= s && d <= en) onCall[i]--; });
   }
 
+  // Deployable = on-call AND not marked unavailable to deploy
+  const deployable = onCall.slice();
+  const groupMemberIds = new Set((_data?.members || []).map(m => m.id));
+  for (const u of _unavailable.filter(e => !e.deleted && groupMemberIds.has(e.member_id))) {
+    const us = new Date(u.starts_at); us.setHours(0,0,0,0);
+    const ue = new Date(u.ends_at || u.starts_at); ue.setHours(0,0,0,0);
+    days.forEach((d, i) => {
+      if (d < us || d > ue) return;
+      const alreadyOff = entries.some(e => {
+        if (e.type !== "OFF" || (e.member?.id || "") !== u.member_id) return false;
+        const es = new Date(e.startsAt); es.setHours(0,0,0,0);
+        const ee = new Date(e.endsAt || e.startsAt); ee.setHours(0,0,0,0);
+        return d >= es && d <= ee;
+      });
+      if (!alreadyOff) deployable[i]--;
+    });
+  }
+
   days.forEach((d, i) => {
     const ymd = labels[i], dow = d.getDay();
     if (holidayMap[ymd]) shading.push({ index: i, type: "holiday", label: holidayMap[ymd] });
@@ -789,6 +934,7 @@ function buildCoverageChart(entries, groupSize, maxDays = null) {
       labels,
       datasets: [
         { label: "On-Call", data: onCall, borderColor: "#3b82f6", borderWidth: 2.5, tension: 0, stepped: true, pointRadius: 0, pointHoverRadius: 5, pointHoverBackgroundColor: "#3b82f6", fill: false },
+        { label: "Deployable", data: deployable, borderColor: "#d97706", borderWidth: 2, tension: 0, stepped: true, pointRadius: 0, pointHoverRadius: 5, pointHoverBackgroundColor: "#d97706", fill: false },
         { label: "Total", data: labels.map(() => groupSize), borderColor: "rgba(148,163,184,0.6)", borderWidth: 2.5, borderDash: [5, 4], tension: 0, pointRadius: 0, fill: false }
       ]
     },
@@ -830,7 +976,11 @@ function buildCoverageChart(entries, groupSize, maxDays = null) {
           padding: 10,
           callbacks: {
             title: items => new Date(items[0].label).toLocaleDateString("en-CA", { weekday:"short", month:"short", day:"numeric", year:"numeric" }),
-            label: item => item.datasetIndex === 0 ? `  On-Call: ${item.raw} / ${groupSize}  (${groupSize - item.raw} off)` : null
+            label: item => {
+                if (item.datasetIndex === 0) return `  On-Call: ${item.raw} / ${groupSize}  (${groupSize - item.raw} off)`;
+                if (item.datasetIndex === 1) return `  Deployable: ${item.raw}`;
+                return null;
+              }
           }
         },
         imtShading: { regions: shading }
@@ -996,6 +1146,25 @@ function renderGantt() {
       if (bw <= 0) continue;
       const r = Math.min(4, bw / 2, BAR_H / 2);
       ctx.fillStyle = "rgba(220,38,38,0.55)";
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(x1, y, bw, BAR_H, r); else ctx.rect(x1, y, bw, BAR_H);
+      ctx.fill();
+    }
+  });
+
+  /* Unavailable-to-deploy bars (amber) */
+  members.forEach((member, row) => {
+    const unavailEntries = _unavailable.filter(u => !u.deleted && u.member_id === member.id);
+    const y = row * G_ROW_H + BAR_PAD;
+    for (const u of unavailEntries) {
+      const s  = new Date(u.starts_at); s.setHours(0,0,0,0);
+      const en = new Date(u.ends_at || u.starts_at); en.setHours(0,0,0,0);
+      en.setDate(en.getDate() + 1);
+      const x1 = Math.max(dateToX(s), G_LABEL_W), x2 = Math.min(dateToX(en), W);
+      const bw = x2 - x1;
+      if (bw <= 0) continue;
+      const r = Math.min(4, bw / 2, BAR_H / 2);
+      ctx.fillStyle = "rgba(217,119,6,0.55)";
       ctx.beginPath();
       if (ctx.roundRect) ctx.roundRect(x1, y, bw, BAR_H, r); else ctx.rect(x1, y, bw, BAR_H);
       ctx.fill();
@@ -1175,16 +1344,48 @@ new ResizeObserver(() => {
 /*  Duties table                                                        */
 /* ------------------------------------------------------------------ */
 
-function buildDutiesTable(entries) {
-  const sorted = entries.slice().sort((a, b) => (a.startsAt || "").localeCompare(b.startsAt || ""));
-  let html = `<thead><tr><th>Member</th><th>Starts</th><th>Ends</th><th>Notes</th></tr></thead><tbody>`;
-  for (const e of sorted) {
-    html += `<tr>
-      <td class="member-name">${escapeHtml(e.member?.name || "")}</td>
-      <td>${formatDate(e.startsAt)}</td>
-      <td>${formatDate(e.endsAt)}</td>
-      <td class="notes-cell">${escapeHtml(e.notes || "")}</td>
-    </tr>`;
+function buildDutiesTable(d4hEntries) {
+  const groupMemberIds = new Set((_data?.members || []).map(m => m.id));
+  const unavailInGroup = _unavailable.filter(u => !u.deleted && groupMemberIds.has(u.member_id));
+
+  const combined = [
+    ...d4hEntries.map(e => ({ _source: "d4h", _sort: e.startsAt || "", ...e })),
+    ...unavailInGroup.map(u => ({
+      _source: "unavail", _sort: u.starts_at || "", _id: u.id,
+      member: { name: u.member_name },
+      startsAt: u.starts_at, endsAt: u.ends_at, notes: u.notes || ""
+    }))
+  ].sort((a, b) => a._sort.localeCompare(b._sort));
+
+  let html = `<thead><tr><th>Member</th><th>Type</th><th>Starts</th><th>Ends</th><th>Notes</th><th></th></tr></thead><tbody>`;
+  if (!combined.length) {
+    html += `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px">No upcoming entries</td></tr>`;
+  }
+  for (const e of combined) {
+    if (e._source === "d4h") {
+      html += `<tr>
+        <td class="member-name">${escapeHtml(e.member?.name || "")}</td>
+        <td><span class="badge badge-off-call">Off-Call</span></td>
+        <td>${formatDate(e.startsAt)}</td>
+        <td>${formatDate(e.endsAt)}</td>
+        <td class="notes-cell">${escapeHtml(e.notes || "")}</td>
+        <td></td>
+      </tr>`;
+    } else {
+      const eid = escapeHtml(e._id);
+      html += `<tr>
+        <td class="member-name">${escapeHtml(e.member?.name || "")}</td>
+        <td><span class="badge badge-unavail">Unavail. to Deploy</span></td>
+        <td>${formatDate(e.startsAt)}</td>
+        <td>${formatDate(e.endsAt)}</td>
+        <td class="notes-cell">${escapeHtml(e.notes || "")}</td>
+        <td><div class="actions-cell">
+          <button class="btn-action" onclick="openEditUnavail('${eid}')">Edit</button>
+          <button class="btn-action danger" onclick="deleteUnavail('${eid}')">Delete</button>
+          <button class="btn-action history" onclick="openHistoryModal('${eid}')">History</button>
+        </div></td>
+      </tr>`;
+    }
   }
   html += "</tbody>";
   document.getElementById("dutiesTable").innerHTML = html;
@@ -1200,7 +1401,227 @@ async function manualRefresh() {
   btn.textContent = "↻ Refresh";
 }
 
+loadMe();
 loadGroups();
+
+/* ------------------------------------------------------------------ */
+/*  Unavailable to Deploy                                               */
+/* ------------------------------------------------------------------ */
+
+let _unavailable = [];
+let _me          = null;
+let _editingId   = null;
+
+async function loadMe() {
+  try {
+    const r = await fetch("/api/me");
+    if (r.ok) _me = await r.json();
+  } catch {}
+}
+
+async function loadUnavailable() {
+  try {
+    const r = await fetch("/api/unavailable");
+    if (r.ok) { const b = await r.json(); _unavailable = b.entries || []; }
+  } catch {}
+}
+
+/* ---- Modal: create / edit ---- */
+
+function openAddUnavail() {
+  if (!_data) { alert("Load a group first."); return; }
+  _editingId = null;
+  document.getElementById("unavailModalTitle").textContent = "Add Unavailable to Deploy";
+  document.getElementById("memberPickerSection").style.display = "";
+  document.getElementById("memberLabelSection").style.display  = "none";
+  document.getElementById("unavailStart").value  = "";
+  document.getElementById("unavailEnd").value    = "";
+  document.getElementById("unavailNotes").value  = "";
+  document.getElementById("memberSearch").value  = "";
+  renderMemberPicker();
+  document.getElementById("unavailModal").style.display = "flex";
+}
+
+function openEditUnavail(id) {
+  const entry = _unavailable.find(e => e.id === id);
+  if (!entry) return;
+  _editingId = id;
+  document.getElementById("unavailModalTitle").textContent = "Edit Unavailable to Deploy";
+  document.getElementById("memberPickerSection").style.display = "none";
+  document.getElementById("memberLabelSection").style.display  = "";
+  document.getElementById("memberLabelText").textContent = entry.member_name;
+  document.getElementById("unavailStart").value  = entry.starts_at;
+  document.getElementById("unavailEnd").value    = entry.ends_at;
+  document.getElementById("unavailNotes").value  = entry.notes || "";
+  document.getElementById("unavailModal").style.display = "flex";
+}
+
+function closeUnavailModal() {
+  document.getElementById("unavailModal").style.display = "none";
+}
+
+/* ---- Modal: history ---- */
+
+function openHistoryModal(id) {
+  fetch(`/api/unavailable/${encodeURIComponent(id)}/history`)
+    .then(r => r.json())
+    .then(body => {
+      const e = body.entry || {};
+      const deletedBadge = e.deleted ? ' <span class="badge badge-off-call" style="vertical-align:middle">Deleted</span>' : "";
+      document.getElementById("historyMeta").innerHTML =
+        `<strong>${escapeHtml(e.member_name || "")}</strong>${deletedBadge}<br>${formatDate(e.starts_at)} &ndash; ${formatDate(e.ends_at)}`;
+
+      const history = body.history || [];
+      document.getElementById("historyTimeline").innerHTML = history.length
+        ? history.map(h => {
+            const icons = { created: "✓", edited: "✎", deleted: "✕" };
+            const changesHtml = (h.changes || []).map(c =>
+              `<div class="history-change-item">${escapeHtml(c)}</div>`
+            ).join("");
+            return `<div class="history-event">
+              <div class="history-dot ${h.action}">${icons[h.action] || "·"}</div>
+              <div class="history-content">
+                <div class="history-by">${escapeHtml(h.by || "unknown")}</div>
+                <div class="history-at">${formatDateTime(h.at)}</div>
+                ${changesHtml ? `<div class="history-changes">${changesHtml}</div>` : ""}
+              </div>
+            </div>`;
+          }).join("")
+        : `<div style="color:var(--text-muted);font-size:.85rem">No history available.</div>`;
+
+      document.getElementById("historyModal").style.display = "flex";
+    })
+    .catch(() => {
+      document.getElementById("historyTimeline").textContent = "Failed to load history.";
+      document.getElementById("historyModal").style.display = "flex";
+    });
+}
+
+function closeHistoryModal() {
+  document.getElementById("historyModal").style.display = "none";
+}
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") { closeUnavailModal(); closeHistoryModal(); }
+});
+
+/* ---- Member picker ---- */
+
+function renderMemberPicker() {
+  const meId    = _me?.member?.id || null;
+  const members = [...(_data?.members || [])].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  const list    = document.getElementById("memberPickerList");
+
+  if (!members.length) {
+    list.innerHTML = `<div style="padding:10px;font-size:.85rem;color:var(--text-muted)">No members in current group</div>`;
+    updatePickerCount(); return;
+  }
+  list.innerHTML = members.map(m => {
+    const checked = meId && m.id === meId ? "checked" : "";
+    return `<div class="picker-item">
+      <input type="checkbox" id="pick_${m.id}" value="${escapeHtml(m.id)}" data-name="${escapeHtml(m.name)}" ${checked} onchange="updatePickerCount()">
+      <label for="pick_${m.id}">${escapeHtml(m.name)}</label>
+    </div>`;
+  }).join("");
+  updatePickerCount();
+}
+
+function filterMemberPicker() {
+  const search  = (document.getElementById("memberSearch")?.value || "").toLowerCase();
+  const checked = new Set([...document.querySelectorAll("#memberPickerList input:checked")].map(c => c.value));
+  const members = [...(_data?.members || [])].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  const visible = search ? members.filter(m => m.name.toLowerCase().includes(search)) : members;
+
+  const list = document.getElementById("memberPickerList");
+  if (!visible.length) {
+    list.innerHTML = `<div style="padding:10px;font-size:.85rem;color:var(--text-muted)">No members match</div>`;
+    updatePickerCount(); return;
+  }
+  list.innerHTML = visible.map(m => {
+    const isChecked = checked.has(m.id) ? "checked" : "";
+    return `<div class="picker-item">
+      <input type="checkbox" id="pick_${m.id}" value="${escapeHtml(m.id)}" data-name="${escapeHtml(m.name)}" ${isChecked} onchange="updatePickerCount()">
+      <label for="pick_${m.id}">${escapeHtml(m.name)}</label>
+    </div>`;
+  }).join("");
+  updatePickerCount();
+}
+
+function updatePickerCount() {
+  const n = document.querySelectorAll("#memberPickerList input:checked").length;
+  const el = document.getElementById("pickerCount");
+  if (el) el.textContent = n;
+}
+
+function getSelectedMembers() {
+  return [...document.querySelectorAll("#memberPickerList input:checked")]
+    .map(cb => ({ id: cb.value, name: cb.dataset.name }));
+}
+
+/* ---- Submit / delete ---- */
+
+async function submitUnavail() {
+  const starts_at = document.getElementById("unavailStart").value;
+  const ends_at   = document.getElementById("unavailEnd").value;
+  const notes     = document.getElementById("unavailNotes").value.trim();
+
+  if (!starts_at || !ends_at)  { alert("Please fill in start and end dates."); return; }
+  if (ends_at < starts_at)     { alert("End date must be on or after start date."); return; }
+
+  const btn = document.getElementById("unavailSubmitBtn");
+  btn.disabled = true; btn.textContent = "Saving…";
+
+  try {
+    if (_editingId) {
+      const r = await fetch(`/api/unavailable/${encodeURIComponent(_editingId)}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ starts_at, ends_at, notes })
+      });
+      if (!r.ok) throw new Error(await r.text());
+      const body = await r.json();
+      const idx = _unavailable.findIndex(e => e.id === _editingId);
+      if (idx >= 0) Object.assign(_unavailable[idx], body.entry);
+    } else {
+      const members = getSelectedMembers();
+      if (!members.length) { alert("Please select at least one member."); btn.disabled = false; btn.textContent = "Save"; return; }
+      const r = await fetch("/api/unavailable", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ members, starts_at, ends_at, notes })
+      });
+      if (!r.ok) throw new Error(await r.text());
+      const body = await r.json();
+      _unavailable.push(...(body.created || []));
+    }
+    closeUnavailModal();
+    _refreshAfterUnavailChange();
+  } catch (err) {
+    alert("Error saving: " + err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = "Save";
+  }
+}
+
+async function deleteUnavail(id) {
+  const entry = _unavailable.find(e => e.id === id);
+  if (!confirm(`Delete unavailable entry for ${entry?.member_name || "this member"}?`)) return;
+  try {
+    const r = await fetch(`/api/unavailable/${encodeURIComponent(id)}`, { method: "DELETE" });
+    if (!r.ok) throw new Error(await r.text());
+    _unavailable = _unavailable.filter(e => e.id !== id);
+    _refreshAfterUnavailChange();
+  } catch (err) {
+    alert("Error deleting: " + err.message);
+  }
+}
+
+function _refreshAfterUnavailChange() {
+  if (!_data) return;
+  const activeDays = document.querySelector("#rangeBtns button.active")?.dataset.days;
+  const maxDays = activeDays === "all" || !activeDays ? null : Number(activeDays);
+  buildCoverageChart(_data.entries, _data.group_size, maxDays);
+  if (_currentView === "gantt") renderGantt();
+  buildDutiesTable(_data.entries);
+}
 </script>
 </body>
 </html>

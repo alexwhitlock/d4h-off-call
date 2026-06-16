@@ -2,6 +2,7 @@ from flask import Flask, jsonify, render_template, request, Response, stream_wit
 import requests
 import os
 import json
+import uuid
 from pathlib import Path
 from datetime import datetime, timezone
 from dotenv import load_dotenv
@@ -16,6 +17,14 @@ DEFAULT_GROUP_ID = os.environ.get("D4H_GROUP_ID", "")
 BASE_URL         = "https://api.team-manager.ca.d4h.com/v3"
 DATA_DIR         = Path(os.environ.get("DATA_DIR", "data"))
 FAVOURITES_FILE  = DATA_DIR / "favourites.json"
+UNAVAILABLE_FILE = DATA_DIR / "unavailable.json"
+
+GOOGLE_FIELD_ID = 1817
+GOOGLE_DOMAIN   = "@sbo-ovsar.ca"
+
+# In-memory cache for /api/me lookups (email → {member, ts})
+_me_cache: dict = {}
+ME_CACHE_TTL    = 3600
 
 
 def _read_favourites():
@@ -30,8 +39,25 @@ def _write_favourites(ids):
     FAVOURITES_FILE.write_text(json.dumps(ids))
 
 
+def _read_unavailable():
+    try:
+        return json.loads(UNAVAILABLE_FILE.read_text())
+    except Exception:
+        return []
+
+
+def _write_unavailable(entries):
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    UNAVAILABLE_FILE.write_text(json.dumps(entries, indent=2))
+
+
 def _headers():
     return {"Authorization": f"Bearer {API_KEY}", "Accept": "application/json"}
+
+
+def _cf_email():
+    email = request.headers.get("Cf-Access-Authenticated-User-Email", "").strip().lower()
+    return email or "local"
 
 
 def _fetch_groups():
@@ -62,20 +88,46 @@ def _fetch_group_members(group_id):
     return members
 
 
-def _fetch_member_names(member_ids):
-    names = {}
-    for mid in member_ids:
-        try:
-            url = f"{BASE_URL}/team/{TEAM_ID}/members/{mid}"
-            resp = requests.get(url, headers=_headers(), timeout=10)
-            if not resp.ok:
-                continue
-            name = resp.json().get("name", "")
-            if name:
-                names[mid] = name
-        except Exception:
-            pass
-    return names
+def _resolve_me(email):
+    """Find the D4H member whose Team Google Account Username field matches email. Cached."""
+    now_ts = datetime.now(timezone.utc).timestamp()
+    if email in _me_cache and now_ts - _me_cache[email]["ts"] < ME_CACHE_TTL:
+        return _me_cache[email]["member"]
+
+    try:
+        page = 0
+        while True:
+            url = f"{BASE_URL}/team/{TEAM_ID}/members?page={page}&size=100"
+            resp = requests.get(url, headers=_headers(), timeout=30)
+            resp.raise_for_status()
+            body = resp.json()
+            batch = body.get("results", [])
+            if not batch:
+                break
+            for m in batch:
+                # Primary: match custom field 1817 (Team Google Account Username)
+                for cfv in m.get("customFieldValues", []):
+                    if cfv.get("customField", {}).get("id") == GOOGLE_FIELD_ID:
+                        val = (cfv.get("value") or "").strip().lower()
+                        if val and (val + GOOGLE_DOMAIN) == email:
+                            result = {"id": str(m["id"]), "name": m.get("name", "")}
+                            _me_cache[email] = {"member": result, "ts": now_ts}
+                            return result
+                # Fallback: match D4H email field directly
+                d4h_email = ((m.get("email") or {}).get("value") or "").strip().lower()
+                if d4h_email and d4h_email == email:
+                    result = {"id": str(m["id"]), "name": m.get("name", "")}
+                    _me_cache[email] = {"member": result, "ts": now_ts}
+                    return result
+            total = body.get("totalSize", 0)
+            page += 1
+            if page * 100 >= total:
+                break
+    except Exception:
+        pass
+
+    _me_cache[email] = {"member": None, "ts": now_ts}
+    return None
 
 
 def _strip_entry(entry):
@@ -199,6 +251,15 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/api/me")
+def api_me():
+    email = _cf_email()
+    if email == "local":
+        return jsonify({"email": "local", "member": None})
+    member = _resolve_me(email)
+    return jsonify({"email": email, "member": member})
+
+
 @app.route("/api/favourites", methods=["GET"])
 def get_favourites():
     return jsonify({"group_ids": _read_favourites()})
@@ -220,6 +281,116 @@ def api_groups():
         return jsonify({"error": f"D4H API error: {e.response.status_code}"}), 502
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/unavailable")
+def get_unavailable():
+    entries = [e for e in _read_unavailable() if not e.get("deleted")]
+    return jsonify({"entries": entries})
+
+
+@app.route("/api/unavailable", methods=["POST"])
+def post_unavailable():
+    body      = request.get_json() or {}
+    members   = body.get("members", [])
+    starts_at = (body.get("starts_at") or "").strip()
+    ends_at   = (body.get("ends_at") or "").strip()
+    notes     = (body.get("notes") or "").strip()
+
+    if not members or not starts_at or not ends_at:
+        return jsonify({"error": "members, starts_at, ends_at required"}), 400
+
+    email       = _cf_email()
+    now         = datetime.now(timezone.utc).isoformat()
+    all_entries = _read_unavailable()
+    created     = []
+
+    for member in members:
+        entry = {
+            "id":          str(uuid.uuid4()),
+            "member_id":   str(member.get("id", "")),
+            "member_name": member.get("name", ""),
+            "starts_at":   starts_at,
+            "ends_at":     ends_at,
+            "notes":       notes,
+            "deleted":     False,
+            "history":     [{"action": "created", "by": email, "at": now}],
+        }
+        all_entries.append(entry)
+        created.append({k: entry[k] for k in ("id", "member_id", "member_name", "starts_at", "ends_at", "notes")})
+
+    _write_unavailable(all_entries)
+    return jsonify({"created": created})
+
+
+@app.route("/api/unavailable/<entry_id>", methods=["PUT"])
+def put_unavailable(entry_id):
+    body      = request.get_json() or {}
+    starts_at = body.get("starts_at")
+    ends_at   = body.get("ends_at")
+    notes     = body.get("notes")
+
+    all_entries = _read_unavailable()
+    for entry in all_entries:
+        if entry["id"] == entry_id and not entry.get("deleted"):
+            before = {
+                "starts_at": entry["starts_at"],
+                "ends_at":   entry["ends_at"],
+                "notes":     entry.get("notes", ""),
+            }
+            changes = []
+            if starts_at is not None and starts_at != before["starts_at"]:
+                changes.append(f"Start: {before['starts_at']} → {starts_at}")
+                entry["starts_at"] = starts_at
+            if ends_at is not None and ends_at != before["ends_at"]:
+                changes.append(f"End: {before['ends_at']} → {ends_at}")
+                entry["ends_at"] = ends_at
+            if notes is not None and notes != before["notes"]:
+                changes.append("Notes updated")
+                entry["notes"] = notes
+            if changes:
+                entry["history"].append({
+                    "action":  "edited",
+                    "by":      _cf_email(),
+                    "at":      datetime.now(timezone.utc).isoformat(),
+                    "changes": changes,
+                    "before":  before,
+                })
+            _write_unavailable(all_entries)
+            return jsonify({"entry": {k: entry[k] for k in ("id", "member_id", "member_name", "starts_at", "ends_at", "notes")}})
+    return jsonify({"error": "not found"}), 404
+
+
+@app.route("/api/unavailable/<entry_id>", methods=["DELETE"])
+def delete_unavailable(entry_id):
+    all_entries = _read_unavailable()
+    for entry in all_entries:
+        if entry["id"] == entry_id and not entry.get("deleted"):
+            entry["deleted"] = True
+            entry["history"].append({
+                "action": "deleted",
+                "by":     _cf_email(),
+                "at":     datetime.now(timezone.utc).isoformat(),
+            })
+            _write_unavailable(all_entries)
+            return jsonify({"ok": True})
+    return jsonify({"error": "not found"}), 404
+
+
+@app.route("/api/unavailable/<entry_id>/history")
+def get_unavailable_history(entry_id):
+    for entry in _read_unavailable():
+        if entry["id"] == entry_id:
+            return jsonify({
+                "history": entry.get("history", []),
+                "entry": {
+                    "member_name": entry["member_name"],
+                    "starts_at":   entry["starts_at"],
+                    "ends_at":     entry["ends_at"],
+                    "deleted":     entry.get("deleted", False),
+                },
+            })
+    return jsonify({"error": "not found"}), 404
 
 
 @app.route("/api/data/stream")
