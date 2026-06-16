@@ -496,13 +496,17 @@
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>Start Date</label>
-          <input type="date" id="unavailStart">
+          <label>Start</label>
+          <input type="datetime-local" id="unavailStart" oninput="updateUnavailDuration()">
         </div>
         <div class="form-group">
-          <label>End Date</label>
-          <input type="date" id="unavailEnd">
+          <label>End</label>
+          <input type="datetime-local" id="unavailEnd" oninput="updateUnavailDuration()">
         </div>
+      </div>
+      <div id="unavailDurationRow" style="margin-top:-10px;margin-bottom:12px;display:none">
+        <span style="font-size:0.8rem;color:var(--text-muted)">Duration: </span>
+        <span id="unavailDuration" style="font-size:0.8rem;font-weight:600;color:var(--text)"></span>
       </div>
       <div class="form-group">
         <label>Notes (optional)</label>
@@ -553,6 +557,37 @@ function formatDateTime(str) {
 }
 
 function ymdFromDate(d) { return d.toISOString().slice(0, 10); }
+
+function formatDuration(ms) {
+  if (!ms || ms <= 0) return "";
+  const totalMin = Math.floor(ms / 60000);
+  const d = Math.floor(totalMin / 1440);
+  const h = Math.floor((totalMin % 1440) / 60);
+  const m = totalMin % 60;
+  return [d && `${d}d`, h && `${h}h`, m && `${m}m`].filter(Boolean).join(" ");
+}
+
+function toDatetimeLocal(str) {
+  if (!str) return "";
+  if (str.includes("T")) return str.slice(0, 16);
+  return str + "T00:00";
+}
+
+function updateUnavailDuration() {
+  const s = document.getElementById("unavailStart").value;
+  const e = document.getElementById("unavailEnd").value;
+  const row = document.getElementById("unavailDurationRow");
+  const el  = document.getElementById("unavailDuration");
+  if (s && e) {
+    const ms  = new Date(e) - new Date(s);
+    const dur = ms > 0 ? formatDuration(ms) : "";
+    el.textContent    = dur;
+    row.style.display = dur ? "" : "none";
+  } else {
+    el.textContent    = "";
+    row.style.display = "none";
+  }
+}
 
 function nthWeekdayOfMonth(year, month, weekday, n) {
   const first = new Date(year, month - 1, 1);
@@ -1355,9 +1390,9 @@ function buildDutiesTable(d4hEntries) {
     }))
   ].sort((a, b) => a._sort.localeCompare(b._sort));
 
-  let html = `<thead><tr><th>Member</th><th>Type</th><th>Starts</th><th>Ends</th><th>Notes</th><th></th></tr></thead><tbody>`;
+  let html = `<thead><tr><th>Member</th><th>Type</th><th>Starts</th><th>Ends</th><th>Duration</th><th>Notes</th><th></th></tr></thead><tbody>`;
   if (!combined.length) {
-    html += `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px">No upcoming entries</td></tr>`;
+    html += `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:20px">No upcoming entries</td></tr>`;
   }
   for (const e of combined) {
     if (e._source === "d4h") {
@@ -1366,16 +1401,20 @@ function buildDutiesTable(d4hEntries) {
         <td><span class="badge badge-off-call">Off-Call</span></td>
         <td>${formatDate(e.startsAt)}</td>
         <td>${formatDate(e.endsAt)}</td>
+        <td></td>
         <td class="notes-cell">${escapeHtml(e.notes || "")}</td>
         <td></td>
       </tr>`;
     } else {
       const eid = escapeHtml(e._id);
+      const durMs = e.startsAt && e.endsAt ? new Date(e.endsAt) - new Date(e.startsAt) : 0;
+      const durStr = durMs > 0 ? formatDuration(durMs) : "";
       html += `<tr>
         <td class="member-name">${escapeHtml(e.member?.name || "")}</td>
         <td><span class="badge badge-unavail">Unavail. to Deploy</span></td>
-        <td>${formatDate(e.startsAt)}</td>
-        <td>${formatDate(e.endsAt)}</td>
+        <td>${formatDateTime(e.startsAt)}</td>
+        <td>${formatDateTime(e.endsAt)}</td>
+        <td style="white-space:nowrap;color:var(--text-muted);font-size:0.82rem">${escapeHtml(durStr)}</td>
         <td class="notes-cell">${escapeHtml(e.notes || "")}</td>
         <td><div class="actions-cell">
           <button class="btn-action" onclick="openEditUnavail('${eid}')">Edit</button>
@@ -1436,6 +1475,7 @@ function openAddUnavail() {
   document.getElementById("unavailEnd").value    = "";
   document.getElementById("unavailNotes").value  = "";
   document.getElementById("memberSearch").value  = "";
+  updateUnavailDuration();
   renderMemberPicker();
   document.getElementById("unavailModal").style.display = "flex";
 }
@@ -1448,9 +1488,10 @@ function openEditUnavail(id) {
   document.getElementById("memberPickerSection").style.display = "none";
   document.getElementById("memberLabelSection").style.display  = "";
   document.getElementById("memberLabelText").textContent = entry.member_name;
-  document.getElementById("unavailStart").value  = entry.starts_at;
-  document.getElementById("unavailEnd").value    = entry.ends_at;
+  document.getElementById("unavailStart").value  = toDatetimeLocal(entry.starts_at);
+  document.getElementById("unavailEnd").value    = toDatetimeLocal(entry.ends_at);
   document.getElementById("unavailNotes").value  = entry.notes || "";
+  updateUnavailDuration();
   document.getElementById("unavailModal").style.display = "flex";
 }
 
@@ -1467,7 +1508,7 @@ function openHistoryModal(id) {
       const e = body.entry || {};
       const deletedBadge = e.deleted ? ' <span class="badge badge-off-call" style="vertical-align:middle">Deleted</span>' : "";
       document.getElementById("historyMeta").innerHTML =
-        `<strong>${escapeHtml(e.member_name || "")}</strong>${deletedBadge}<br>${formatDate(e.starts_at)} &ndash; ${formatDate(e.ends_at)}`;
+        `<strong>${escapeHtml(e.member_name || "")}</strong>${deletedBadge}<br>${formatDateTime(e.starts_at)} &ndash; ${formatDateTime(e.ends_at)}`;
 
       const history = body.history || [];
       document.getElementById("historyTimeline").innerHTML = history.length
@@ -1563,8 +1604,8 @@ async function submitUnavail() {
   const ends_at   = document.getElementById("unavailEnd").value;
   const notes     = document.getElementById("unavailNotes").value.trim();
 
-  if (!starts_at || !ends_at)  { alert("Please fill in start and end dates."); return; }
-  if (ends_at < starts_at)     { alert("End date must be on or after start date."); return; }
+  if (!starts_at || !ends_at)  { alert("Please fill in start and end date/time."); return; }
+  if (ends_at <= starts_at)    { alert("End must be after start."); return; }
 
   const btn = document.getElementById("unavailSubmitBtn");
   btn.disabled = true; btn.textContent = "Saving…";
