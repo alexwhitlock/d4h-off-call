@@ -644,7 +644,7 @@
 <div id="offCallModal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeOffCallModal()">
   <div class="modal-box">
     <div class="modal-header">
-      <h3 id="offCallModalTitle">Add Off-Call Entry</h3>
+      <h3 id="offCallModalTitle">Add D4H Off-Call Entry</h3>
       <button class="modal-close" onclick="closeOffCallModal()">&#10005;</button>
     </div>
     <div class="modal-body">
@@ -1788,7 +1788,7 @@ async function openAddOffCall() {
   if (!_allMembers.length) { alert("Members are still loading, please try again."); return; }
   await _mePromise;
   _editingOffCallId = null;
-  document.getElementById("offCallModalTitle").textContent = "Add Off-Call Entry";
+  document.getElementById("offCallModalTitle").textContent = "Add D4H Off-Call Entry";
   document.getElementById("ocMemberPickerSection").style.display = "";
   document.getElementById("ocMemberLabelSection").style.display  = "none";
 
@@ -1811,7 +1811,7 @@ function openEditOffCall(id) {
   const entry = _data?.entries?.find(e => String(e.id) === String(id));
   if (!entry) return;
   _editingOffCallId = id;
-  document.getElementById("offCallModalTitle").textContent = "Edit Off-Call Entry";
+  document.getElementById("offCallModalTitle").textContent = "Edit D4H Off-Call Entry";
   document.getElementById("ocMemberPickerSection").style.display = "none";
   document.getElementById("ocMemberLabelSection").style.display  = "";
   document.getElementById("ocMemberLabelText").textContent = entry.member?.name || "";
