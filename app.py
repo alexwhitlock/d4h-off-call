@@ -26,6 +26,10 @@ GOOGLE_DOMAIN   = "@sbo-ovsar.ca"
 _me_cache: dict = {}
 ME_CACHE_TTL    = 3600
 
+# In-memory cache for the full members list
+_members_cache: dict = {"members": None, "ts": 0}
+MEMBERS_CACHE_TTL    = 3600
+
 
 def _read_favourites():
     try:
@@ -73,6 +77,10 @@ def _fetch_groups():
 
 
 def _fetch_all_members():
+    now = datetime.now(timezone.utc).timestamp()
+    if _members_cache["members"] is not None and now - _members_cache["ts"] < MEMBERS_CACHE_TTL:
+        return _members_cache["members"]
+
     members, page = [], 0
     while True:
         url = f"{BASE_URL}/team/{TEAM_ID}/members?page={page}&size=100"
@@ -87,7 +95,10 @@ def _fetch_all_members():
         page += 1
         if page * 100 >= body.get("totalSize", 0):
             break
-    return sorted(members, key=lambda m: (m["name"] or "").lower())
+    result = sorted(members, key=lambda m: (m["name"] or "").lower())
+    _members_cache["members"] = result
+    _members_cache["ts"] = now
+    return result
 
 
 def _fetch_group_members(group_id):
