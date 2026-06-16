@@ -1662,7 +1662,7 @@ function filterMemberDropdown() {
       `<div class="picker-item" onmousedown="addMemberChip('${escapeHtml(m.id)}', '${escapeHtml(m.name)}')">${escapeHtml(m.name)}</div>`
     ).join("");
   }
-  list.style.display = "";
+  list.style.display = "block";
 }
 
 function hideMemberDropdown() {
