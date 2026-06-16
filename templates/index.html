@@ -1491,6 +1491,7 @@ async function manualRefresh() {
 }
 
 loadMe();
+loadAllMembers();
 loadGroups();
 
 /* ------------------------------------------------------------------ */
@@ -1498,6 +1499,7 @@ loadGroups();
 /* ------------------------------------------------------------------ */
 
 let _unavailable = [];
+let _allMembers  = [];
 let _me          = null;
 let _editingId   = null;
 
@@ -1505,6 +1507,13 @@ async function loadMe() {
   try {
     const r = await fetch("/api/me");
     if (r.ok) _me = await r.json();
+  } catch {}
+}
+
+async function loadAllMembers() {
+  try {
+    const r = await fetch("/api/members");
+    if (r.ok) { const b = await r.json(); _allMembers = b.members || []; }
   } catch {}
 }
 
@@ -1518,7 +1527,7 @@ async function loadUnavailable() {
 /* ---- Modal: create / edit ---- */
 
 function openAddUnavail() {
-  if (!_data) { alert("Load a group first."); return; }
+  if (!_allMembers.length) { alert("Members are still loading, please try again in a moment."); return; }
   _editingId = null;
   document.getElementById("unavailModalTitle").textContent = "Add Unavailable to Deploy";
   document.getElementById("memberPickerSection").style.display = "";
@@ -1601,7 +1610,7 @@ document.addEventListener("keydown", e => {
 
 function renderMemberPicker() {
   const meId    = _me?.member?.id || null;
-  const members = [...(_data?.members || [])].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  const members = [..._allMembers];
   const list    = document.getElementById("memberPickerList");
 
   if (!members.length) {
@@ -1621,7 +1630,7 @@ function renderMemberPicker() {
 function filterMemberPicker() {
   const search  = (document.getElementById("memberSearch")?.value || "").toLowerCase();
   const checked = new Set([...document.querySelectorAll("#memberPickerList input:checked")].map(c => c.value));
-  const members = [...(_data?.members || [])].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  const members = [..._allMembers];
   const visible = search ? members.filter(m => m.name.toLowerCase().includes(search)) : members;
 
   const list = document.getElementById("memberPickerList");

@@ -72,6 +72,24 @@ def _fetch_groups():
     return sorted(groups, key=lambda g: g["name"].lower())
 
 
+def _fetch_all_members():
+    members, page = [], 0
+    while True:
+        url = f"{BASE_URL}/team/{TEAM_ID}/members?page={page}&size=100"
+        resp = requests.get(url, headers=_headers(), timeout=30)
+        resp.raise_for_status()
+        body = resp.json()
+        batch = body.get("results", [])
+        if not batch:
+            break
+        for m in batch:
+            members.append({"id": str(m["id"]), "name": m.get("name", "")})
+        page += 1
+        if page * 100 >= body.get("totalSize", 0):
+            break
+    return sorted(members, key=lambda m: (m["name"] or "").lower())
+
+
 def _fetch_group_members(group_id):
     url = f"{BASE_URL}/team/{TEAM_ID}/member-group-memberships?group_id={group_id}&size=200"
     resp = requests.get(url, headers=_headers(), timeout=30)
@@ -277,6 +295,16 @@ def api_groups():
     try:
         groups = _fetch_groups()
         return jsonify({"groups": groups, "default_group_id": DEFAULT_GROUP_ID})
+    except requests.HTTPError as e:
+        return jsonify({"error": f"D4H API error: {e.response.status_code}"}), 502
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/members")
+def api_members():
+    try:
+        return jsonify({"members": _fetch_all_members()})
     except requests.HTTPError as e:
         return jsonify({"error": f"D4H API error: {e.response.status_code}"}), 502
     except Exception as e:
