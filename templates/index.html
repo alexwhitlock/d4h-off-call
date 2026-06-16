@@ -1495,6 +1495,7 @@ async function manualRefresh() {
   btn.textContent = "↻ Refresh";
 }
 
+_setLoadingVisible(true);
 const _mePromise = loadMe();
 loadAllMembers();
 loadGroups();
