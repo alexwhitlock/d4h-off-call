@@ -335,6 +335,10 @@
   #addUnavailBtn { background: #f59e0b; color: #fff; border: 1px solid #f59e0b; border-radius: 7px; padding: 5px 12px; font-size: 0.82rem; font-weight: 500; cursor: pointer; transition: background 0.15s, border-color 0.15s; white-space: nowrap; flex-shrink: 0; }
   #addUnavailBtn:hover { background: #d97706; border-color: #d97706; }
 
+  /* ---- Add off-call button ---- */
+  #addOffCallBtn { background: var(--accent); color: #fff; border: 1px solid var(--accent); border-radius: 7px; padding: 5px 12px; font-size: 0.82rem; font-weight: 500; cursor: pointer; transition: background 0.15s, border-color 0.15s; white-space: nowrap; flex-shrink: 0; }
+  #addOffCallBtn:hover { background: #1d4ed8; border-color: #1d4ed8; }
+
   /* ---- Modals ---- */
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 20px; }
   .modal-box { background: #fff; border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); width: 100%; max-width: 520px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; }
@@ -404,7 +408,8 @@
     .header-divider, .header-spacer, .meta { display: none; }
     .group-row { order: 3; width: 100%; margin-top: 6px; }
     .custom-select { min-width: 0; width: 100%; }
-    #addUnavailBtn { order: 4; width: 100%; text-align: center; margin-top: 4px; }
+    #addOffCallBtn  { order: 4; width: 100%; text-align: center; margin-top: 4px; }
+    #addUnavailBtn  { order: 5; width: 100%; text-align: center; margin-top: 4px; }
 
     /* Card header controls */
     .card-header { gap: 8px; }
@@ -454,6 +459,7 @@
     </div>
     <div class="header-spacer"></div>
     <span class="meta" id="metaInfo">Last update: &mdash;</span>
+    <button id="addOffCallBtn" onclick="openAddOffCall()">+ Off-Call</button>
     <button id="addUnavailBtn" onclick="openAddUnavail()">+ Unavailable to Deploy</button>
     <button id="refreshBtn" onclick="manualRefresh()">&#8635; Refresh</button>
   </div>
@@ -581,6 +587,53 @@
     <div class="modal-body">
       <div id="historyMeta" class="history-meta"></div>
       <div id="historyTimeline"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Add / Edit Off-Call Modal -->
+<div id="offCallModal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeOffCallModal()">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="offCallModalTitle">Add Off-Call Entry</h3>
+      <button class="modal-close" onclick="closeOffCallModal()">&#10005;</button>
+    </div>
+    <div class="modal-body">
+      <div id="ocMemberPickerSection" class="form-group">
+        <label>Members</label>
+        <div id="ocMemberChips" class="member-chips"></div>
+        <div class="member-picker-wrap">
+          <input type="text" class="member-search-input" id="ocMemberSearch" placeholder="Search to add&hellip;" autocomplete="off"
+            oninput="filterOcMemberDropdown()" onfocus="filterOcMemberDropdown()" onblur="setTimeout(hideOcMemberDropdown, 150)">
+          <div class="member-picker-list" id="ocMemberPickerList"></div>
+        </div>
+      </div>
+      <div id="ocMemberLabelSection" class="form-group" style="display:none">
+        <label>Member</label>
+        <div class="member-label-static" id="ocMemberLabelText"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Start</label>
+          <input type="datetime-local" id="ocStart" oninput="updateOcDuration()">
+        </div>
+        <div class="form-group">
+          <label>End</label>
+          <input type="datetime-local" id="ocEnd" oninput="updateOcDuration()">
+        </div>
+      </div>
+      <div id="ocDurationRow" style="margin-top:-10px;margin-bottom:12px;display:none">
+        <span style="font-size:0.8rem;color:var(--text-muted)">Duration: </span>
+        <span id="ocDuration" style="font-size:0.8rem;font-weight:600;color:var(--text)"></span>
+      </div>
+      <div class="form-group">
+        <label>Notes (optional)</label>
+        <textarea id="ocNotes" rows="3" placeholder="Add any notes&hellip;" style="resize:vertical"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeOffCallModal()">Cancel</button>
+      <button class="btn-primary" id="ocSubmitBtn" onclick="submitOffCall()">Save</button>
     </div>
   </div>
 </div>
@@ -1453,6 +1506,7 @@ function buildDutiesTable(d4hEntries) {
     if (e._source === "d4h") {
       const durMs = e.startsAt && e.endsAt ? new Date(e.endsAt) - new Date(e.startsAt) : 0;
       const durStr = durMs > 0 ? formatDuration(durMs) : "";
+      const eid = escapeHtml(String(e.id));
       html += `<tr>
         <td class="member-name">${escapeHtml(e.member?.name || "")}</td>
         <td><span class="badge badge-off-call">Off-Call</span></td>
@@ -1460,7 +1514,10 @@ function buildDutiesTable(d4hEntries) {
         <td>${formatDateTime(e.endsAt)}</td>
         <td style="white-space:nowrap;color:var(--text-muted);font-size:0.82rem">${escapeHtml(durStr)}</td>
         <td class="notes-cell">${escapeHtml(e.notes || "")}</td>
-        <td></td>
+        <td><div class="actions-cell">
+          <button class="btn-action" onclick="openEditOffCall('${eid}')">Edit</button>
+          <button class="btn-action danger" onclick="deleteOffCall('${eid}')">Delete</button>
+        </div></td>
       </tr>`;
     } else {
       const eid = escapeHtml(e._id);
@@ -1610,8 +1667,169 @@ function closeHistoryModal() {
 }
 
 document.addEventListener("keydown", e => {
-  if (e.key === "Escape") { closeUnavailModal(); closeHistoryModal(); }
+  if (e.key === "Escape") { closeUnavailModal(); closeHistoryModal(); closeOffCallModal(); }
 });
+
+/* ------------------------------------------------------------------ */
+/*  Off-Call Modal                                                      */
+/* ------------------------------------------------------------------ */
+
+let _ocPickerSelected  = new Map();
+let _editingOffCallId  = null;
+
+async function openAddOffCall() {
+  if (!_allMembers.length) { alert("Members are still loading, please try again."); return; }
+  await _mePromise;
+  _editingOffCallId = null;
+  document.getElementById("offCallModalTitle").textContent = "Add Off-Call Entry";
+  document.getElementById("ocMemberPickerSection").style.display = "";
+  document.getElementById("ocMemberLabelSection").style.display  = "none";
+
+  _ocPickerSelected = new Map();
+  const meId = _me?.member?.id || null;
+  if (meId) { const me = _allMembers.find(m => m.id === meId); if (me) _ocPickerSelected.set(meId, me); }
+  renderOcMemberChips();
+  hideOcMemberDropdown();
+  document.getElementById("ocMemberSearch").value = "";
+
+  const today = new Date().toISOString().slice(0, 10);
+  document.getElementById("ocStart").value = today + "T00:00";
+  document.getElementById("ocEnd").value   = today + "T00:00";
+  document.getElementById("ocNotes").value = "";
+  updateOcDuration();
+  document.getElementById("offCallModal").style.display = "flex";
+}
+
+function openEditOffCall(id) {
+  const entry = _data?.entries?.find(e => String(e.id) === String(id));
+  if (!entry) return;
+  _editingOffCallId = id;
+  document.getElementById("offCallModalTitle").textContent = "Edit Off-Call Entry";
+  document.getElementById("ocMemberPickerSection").style.display = "none";
+  document.getElementById("ocMemberLabelSection").style.display  = "";
+  document.getElementById("ocMemberLabelText").textContent = entry.member?.name || "";
+  document.getElementById("ocStart").value = toDatetimeLocal(entry.startsAt);
+  document.getElementById("ocEnd").value   = toDatetimeLocal(entry.endsAt);
+  document.getElementById("ocNotes").value = entry.notes || "";
+  updateOcDuration();
+  document.getElementById("offCallModal").style.display = "flex";
+}
+
+function closeOffCallModal() {
+  document.getElementById("offCallModal").style.display = "none";
+}
+
+function renderOcMemberChips() {
+  document.getElementById("ocMemberChips").innerHTML = [..._ocPickerSelected.values()].map(m =>
+    `<span class="member-chip">${escapeHtml(m.name)}<button type="button" class="member-chip-x" onclick="removeOcMemberChip('${escapeHtml(m.id)}')">&#x2715;</button></span>`
+  ).join("");
+}
+
+function addOcMemberChip(id, name) {
+  _ocPickerSelected.set(id, { id, name });
+  renderOcMemberChips();
+  document.getElementById("ocMemberSearch").value = "";
+  filterOcMemberDropdown();
+  document.getElementById("ocMemberSearch").focus();
+}
+
+function removeOcMemberChip(id) {
+  _ocPickerSelected.delete(id);
+  renderOcMemberChips();
+  filterOcMemberDropdown();
+}
+
+function filterOcMemberDropdown() {
+  const search  = (document.getElementById("ocMemberSearch")?.value || "").toLowerCase();
+  const list    = document.getElementById("ocMemberPickerList");
+  const visible = _allMembers.filter(m =>
+    !_ocPickerSelected.has(m.id) && (!search || m.name.toLowerCase().includes(search))
+  );
+  if (!visible.length) {
+    list.innerHTML = `<div style="padding:10px;font-size:.85rem;color:var(--text-muted)">${search ? "No members match" : "All members selected"}</div>`;
+  } else {
+    list.innerHTML = visible.map(m =>
+      `<div class="picker-item" onmousedown="addOcMemberChip('${escapeHtml(m.id)}', '${escapeHtml(m.name)}')">${escapeHtml(m.name)}</div>`
+    ).join("");
+  }
+  list.style.display = "block";
+}
+
+function hideOcMemberDropdown() {
+  const el = document.getElementById("ocMemberPickerList");
+  if (el) el.style.display = "none";
+}
+
+function updateOcDuration() {
+  const s   = document.getElementById("ocStart").value;
+  const e   = document.getElementById("ocEnd").value;
+  const row = document.getElementById("ocDurationRow");
+  const el  = document.getElementById("ocDuration");
+  if (s && e) {
+    const ms  = new Date(e) - new Date(s);
+    const dur = ms > 0 ? formatDuration(ms) : "";
+    el.textContent    = dur;
+    row.style.display = dur ? "" : "none";
+  } else {
+    el.textContent    = "";
+    row.style.display = "none";
+  }
+}
+
+async function submitOffCall() {
+  const starts_at = document.getElementById("ocStart").value;
+  const ends_at   = document.getElementById("ocEnd").value;
+  const notes     = document.getElementById("ocNotes").value.trim();
+
+  if (!starts_at || !ends_at) { alert("Please fill in start and end date/time."); return; }
+  if (ends_at <= starts_at)   { alert("End must be after start."); return; }
+
+  const btn = document.getElementById("ocSubmitBtn");
+  btn.disabled = true; btn.textContent = "Saving…";
+
+  try {
+    if (_editingOffCallId) {
+      const r = await fetch(`/api/duties/${encodeURIComponent(_editingOffCallId)}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ starts_at, ends_at, notes })
+      });
+      if (!r.ok) throw new Error(await r.text());
+      const body = await r.json();
+      const idx  = _data.entries.findIndex(e => String(e.id) === String(_editingOffCallId));
+      if (idx >= 0) Object.assign(_data.entries[idx], body.entry);
+    } else {
+      const members = [..._ocPickerSelected.values()];
+      if (!members.length) { alert("Please select at least one member."); btn.disabled = false; btn.textContent = "Save"; return; }
+      const results = await Promise.all(members.map(m =>
+        fetch("/api/duties", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ member_id: m.id, starts_at, ends_at, notes })
+        }).then(async r => { if (!r.ok) throw new Error(await r.text()); return r.json(); })
+      ));
+      results.forEach(b => { if (b.entry) _data.entries.push(b.entry); });
+      _data.entries.sort((a, b) => (a.startsAt || "").localeCompare(b.startsAt || ""));
+    }
+    closeOffCallModal();
+    _refreshAfterUnavailChange();
+  } catch (err) {
+    alert("Error saving: " + err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = "Save";
+  }
+}
+
+async function deleteOffCall(id) {
+  const entry = _data?.entries?.find(e => String(e.id) === String(id));
+  if (!confirm(`Delete off-call entry for ${entry?.member?.name || "this member"}?`)) return;
+  try {
+    const r = await fetch(`/api/duties/${encodeURIComponent(id)}`, { method: "DELETE" });
+    if (!r.ok) throw new Error(await r.text());
+    _data.entries = _data.entries.filter(e => String(e.id) !== String(id));
+    _refreshAfterUnavailChange();
+  } catch (err) {
+    alert("Error deleting: " + err.message);
+  }
+}
 
 /* ---- Member picker ---- */
 

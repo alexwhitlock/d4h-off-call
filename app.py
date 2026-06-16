@@ -322,6 +322,64 @@ def api_members():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/duties", methods=["POST"])
+def post_duty():
+    body      = request.get_json() or {}
+    member_id = body.get("member_id")
+    starts_at = body.get("starts_at")
+    ends_at   = body.get("ends_at")
+    notes     = body.get("notes", "")
+    if not member_id or not starts_at or not ends_at:
+        return jsonify({"error": "member_id, starts_at, ends_at required"}), 400
+    try:
+        url  = f"{BASE_URL}/team/{TEAM_ID}/duties"
+        payload = {"type": "OFF", "memberId": int(member_id),
+                   "startsAt": starts_at, "endsAt": ends_at, "notes": notes}
+        resp = requests.post(url, headers={**_headers(), "Content-Type": "application/json"},
+                             json=payload, timeout=30)
+        resp.raise_for_status()
+        return jsonify({"entry": _strip_entry(resp.json())})
+    except requests.HTTPError as e:
+        return jsonify({"error": f"D4H API error: {e.response.status_code} — {e.response.text}"}), 502
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/duties/<int:duty_id>", methods=["PUT"])
+def put_duty(duty_id):
+    body      = request.get_json() or {}
+    starts_at = body.get("starts_at")
+    ends_at   = body.get("ends_at")
+    notes     = body.get("notes")
+    try:
+        url     = f"{BASE_URL}/team/{TEAM_ID}/duties/{duty_id}"
+        payload = {}
+        if starts_at is not None: payload["startsAt"] = starts_at
+        if ends_at   is not None: payload["endsAt"]   = ends_at
+        if notes     is not None: payload["notes"]    = notes
+        resp = requests.put(url, headers={**_headers(), "Content-Type": "application/json"},
+                            json=payload, timeout=30)
+        resp.raise_for_status()
+        return jsonify({"entry": _strip_entry(resp.json())})
+    except requests.HTTPError as e:
+        return jsonify({"error": f"D4H API error: {e.response.status_code} — {e.response.text}"}), 502
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/duties/<int:duty_id>", methods=["DELETE"])
+def delete_duty(duty_id):
+    try:
+        url  = f"{BASE_URL}/team/{TEAM_ID}/duties/{duty_id}"
+        resp = requests.delete(url, headers=_headers(), timeout=30)
+        resp.raise_for_status()
+        return jsonify({"ok": True})
+    except requests.HTTPError as e:
+        return jsonify({"error": f"D4H API error: {e.response.status_code} — {e.response.text}"}), 502
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/unavailable")
 def get_unavailable():
     entries = [e for e in _read_unavailable() if not e.get("deleted")]
