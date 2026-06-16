@@ -976,24 +976,28 @@ function buildCoverageChart(entries, groupSize, maxDays = null) {
 
   for (const e of entries) {
     if (e.type !== "OFF") continue;
-    const s = new Date(e.startsAt); s.setHours(0,0,0,0);
-    const en = new Date(e.endsAt || e.startsAt); en.setHours(0,0,0,0);
-    days.forEach((d, i) => { if (d >= s && d <= en) onCall[i]--; });
+    const s  = new Date(e.startsAt);
+    const en = new Date(e.endsAt || e.startsAt);
+    days.forEach((d, i) => {
+      const dEnd = new Date(d); dEnd.setHours(23,59,59,999);
+      if (s <= dEnd && en >= d) onCall[i]--;
+    });
   }
 
   // Deployable = on-call AND not marked unavailable to deploy
   const deployable = onCall.slice();
   const groupMemberIds = new Set((_data?.members || []).map(m => m.id));
   for (const u of _unavailable.filter(e => !e.deleted && groupMemberIds.has(e.member_id))) {
-    const us = new Date(u.starts_at); us.setHours(0,0,0,0);
-    const ue = new Date(u.ends_at || u.starts_at); ue.setHours(0,0,0,0);
+    const us = new Date(u.starts_at);
+    const ue = new Date(u.ends_at || u.starts_at);
     days.forEach((d, i) => {
-      if (d < us || d > ue) return;
+      const dEnd = new Date(d); dEnd.setHours(23,59,59,999);
+      if (us > dEnd || ue < d) return;
       const alreadyOff = entries.some(e => {
         if (e.type !== "OFF" || (e.member?.id || "") !== u.member_id) return false;
-        const es = new Date(e.startsAt); es.setHours(0,0,0,0);
-        const ee = new Date(e.endsAt || e.startsAt); ee.setHours(0,0,0,0);
-        return d >= es && d <= ee;
+        const es = new Date(e.startsAt);
+        const ee = new Date(e.endsAt || e.startsAt);
+        return es <= dEnd && ee >= d;
       });
       if (!alreadyOff) deployable[i]--;
     });
@@ -1219,9 +1223,8 @@ function renderGantt() {
     );
     const y = row * G_ROW_H + BAR_PAD;
     for (const e of rowEntries) {
-      const s  = new Date(e.startsAt); s.setHours(0,0,0,0);
-      const en = new Date(e.endsAt || e.startsAt); en.setHours(0,0,0,0);
-      en.setDate(en.getDate() + 1);
+      const s  = new Date(e.startsAt);
+      const en = new Date(e.endsAt || e.startsAt);
       const x1 = Math.max(dateToX(s), G_LABEL_W), x2 = Math.min(dateToX(en), W);
       const bw = x2 - x1;
       if (bw <= 0) continue;
@@ -1238,9 +1241,8 @@ function renderGantt() {
     const unavailEntries = _unavailable.filter(u => !u.deleted && u.member_id === member.id);
     const y = row * G_ROW_H + BAR_PAD;
     for (const u of unavailEntries) {
-      const s  = new Date(u.starts_at); s.setHours(0,0,0,0);
-      const en = new Date(u.ends_at || u.starts_at); en.setHours(0,0,0,0);
-      en.setDate(en.getDate() + 1);
+      const s  = new Date(u.starts_at);
+      const en = new Date(u.ends_at || u.starts_at);
       const x1 = Math.max(dateToX(s), G_LABEL_W), x2 = Math.min(dateToX(en), W);
       const bw = x2 - x1;
       if (bw <= 0) continue;
@@ -1444,12 +1446,14 @@ function buildDutiesTable(d4hEntries) {
   }
   for (const e of combined) {
     if (e._source === "d4h") {
+      const durMs = e.startsAt && e.endsAt ? new Date(e.endsAt) - new Date(e.startsAt) : 0;
+      const durStr = durMs > 0 ? formatDuration(durMs) : "";
       html += `<tr>
         <td class="member-name">${escapeHtml(e.member?.name || "")}</td>
         <td><span class="badge badge-off-call">Off-Call</span></td>
-        <td>${formatDate(e.startsAt)}</td>
-        <td>${formatDate(e.endsAt)}</td>
-        <td></td>
+        <td>${formatDateTime(e.startsAt)}</td>
+        <td>${formatDateTime(e.endsAt)}</td>
+        <td style="white-space:nowrap;color:var(--text-muted);font-size:0.82rem">${escapeHtml(durStr)}</td>
         <td class="notes-cell">${escapeHtml(e.notes || "")}</td>
         <td></td>
       </tr>`;
