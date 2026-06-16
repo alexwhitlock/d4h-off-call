@@ -339,6 +339,16 @@
   #addOffCallBtn { background: var(--accent); color: #fff; border: 1px solid var(--accent); border-radius: 7px; padding: 5px 12px; font-size: 0.82rem; font-weight: 500; cursor: pointer; transition: background 0.15s, border-color 0.15s; white-space: nowrap; flex-shrink: 0; }
   #addOffCallBtn:hover { background: #1d4ed8; border-color: #1d4ed8; }
 
+  /* ---- Header username + My Entries ---- */
+  #headerUserName { font-size: 0.82rem; font-weight: 500; color: var(--text-muted); white-space: nowrap; }
+  #myEntriesBtn { background: transparent; color: var(--text-muted); border: 1px solid var(--border); border-radius: 7px; padding: 5px 12px; font-size: 0.82rem; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; white-space: nowrap; flex-shrink: 0; }
+  #myEntriesBtn:hover { background: #f1f5f9; color: var(--text); border-color: #d1d5db; }
+  #myEntriesBtn.active { background: #eff6ff; color: var(--accent); border-color: #bfdbfe; font-weight: 500; }
+
+  /* ---- Table member filter ---- */
+  .table-filter-select { font-size: 0.8rem; padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; color: var(--text-muted); background: #fff; cursor: pointer; font-family: inherit; }
+  .table-filter-select:focus { outline: none; border-color: var(--accent); }
+
   /* ---- Modals ---- */
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 20px; }
   .modal-box { background: #fff; border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); width: 100%; max-width: 520px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; }
@@ -408,8 +418,10 @@
     .header-divider, .header-spacer, .meta { display: none; }
     .group-row { order: 3; width: 100%; margin-top: 6px; }
     .custom-select { min-width: 0; width: 100%; }
-    #addOffCallBtn  { order: 4; width: 100%; text-align: center; margin-top: 4px; }
-    #addUnavailBtn  { order: 5; width: 100%; text-align: center; margin-top: 4px; }
+    #headerUserName { display: none; }
+    #myEntriesBtn   { order: 4; width: 100%; text-align: center; margin-top: 4px; }
+    #addOffCallBtn  { order: 5; width: 100%; text-align: center; margin-top: 4px; }
+    #addUnavailBtn  { order: 6; width: 100%; text-align: center; margin-top: 4px; }
 
     /* Card header controls */
     .card-header { gap: 8px; }
@@ -459,6 +471,8 @@
     </div>
     <div class="header-spacer"></div>
     <span class="meta" id="metaInfo">Last update: &mdash;</span>
+    <span id="headerUserName"></span>
+    <button id="myEntriesBtn" onclick="toggleMyEntriesFilter()" style="display:none">My Entries</button>
     <button id="addOffCallBtn" onclick="openAddOffCall()">+ Off-Call</button>
     <button id="addUnavailBtn" onclick="openAddUnavail()">+ Unavailable to Deploy</button>
     <button id="refreshBtn" onclick="manualRefresh()">&#8635; Refresh</button>
@@ -524,6 +538,11 @@
   <div class="card" id="dutiesCard" style="display:none">
     <div class="card-header">
       <h2>Upcoming Entries</h2>
+      <div class="card-header-right">
+        <select id="memberFilter" class="table-filter-select" onchange="setMemberFilter(this.value)">
+          <option value="">All Members</option>
+        </select>
+      </div>
     </div>
     <div class="table-wrap"><table id="dutiesTable"></table></div>
   </div>
@@ -1485,6 +1504,23 @@ new ResizeObserver(() => {
 /*  Duties table                                                        */
 /* ------------------------------------------------------------------ */
 
+function toggleMyEntriesFilter() {
+  const myId = _me?.member?.id || null;
+  if (!myId) return;
+  _tableFilter = (_tableFilter === myId) ? null : myId;
+  document.getElementById("myEntriesBtn").classList.toggle("active", _tableFilter === myId);
+  const sel = document.getElementById("memberFilter");
+  if (sel) sel.value = _tableFilter || "";
+  if (_data) buildDutiesTable(_data.entries);
+}
+
+function setMemberFilter(id) {
+  _tableFilter = id || null;
+  const myId = _me?.member?.id || null;
+  document.getElementById("myEntriesBtn").classList.toggle("active", !!_tableFilter && _tableFilter === myId);
+  if (_data) buildDutiesTable(_data.entries);
+}
+
 function buildDutiesTable(d4hEntries) {
   const groupMemberIds = new Set((_data?.members || []).map(m => m.id));
   const unavailInGroup = _unavailable.filter(u => !u.deleted && groupMemberIds.has(u.member_id));
@@ -1493,16 +1529,29 @@ function buildDutiesTable(d4hEntries) {
     ...d4hEntries.map(e => ({ _source: "d4h", _sort: e.startsAt || "", ...e })),
     ...unavailInGroup.map(u => ({
       _source: "unavail", _sort: u.starts_at || "", _id: u.id,
-      member: { name: u.member_name },
+      member: { name: u.member_name, id: u.member_id },
       startsAt: u.starts_at, endsAt: u.ends_at, notes: u.notes || ""
     }))
   ].sort((a, b) => a._sort.localeCompare(b._sort));
 
+  /* Populate member filter select */
+  const sel = document.getElementById("memberFilter");
+  if (sel) {
+    const memberMap = new Map();
+    combined.forEach(e => { const id = e.member?.id || ""; const name = e.member?.name || ""; if (id) memberMap.set(id, name); });
+    const prev = sel.value;
+    sel.innerHTML = `<option value="">All Members</option>` +
+      [...memberMap.entries()].sort((a,b) => a[1].localeCompare(b[1]))
+        .map(([id, name]) => `<option value="${escapeHtml(id)}"${id === prev ? " selected" : ""}>${escapeHtml(name)}</option>`).join("");
+  }
+
+  const toShow = _tableFilter ? combined.filter(e => (e.member?.id || "") === _tableFilter) : combined;
+
   let html = `<thead><tr><th>Member</th><th>Type</th><th>Starts</th><th>Ends</th><th>Duration</th><th>Notes</th><th></th></tr></thead><tbody>`;
-  if (!combined.length) {
+  if (!toShow.length) {
     html += `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:20px">No upcoming entries</td></tr>`;
   }
-  for (const e of combined) {
+  for (const e of toShow) {
     if (e._source === "d4h") {
       const durMs = e.startsAt && e.endsAt ? new Date(e.endsAt) - new Date(e.startsAt) : 0;
       const durStr = durMs > 0 ? formatDuration(durMs) : "";
@@ -1564,12 +1613,25 @@ loadGroups();
 let _unavailable = [];
 let _allMembers  = [];
 let _me          = null;
+let _tableFilter = null; // member id string, or null for all
 let _editingId   = null;
 
 async function loadMe() {
   try {
     const r = await fetch("/api/me");
-    if (r.ok) _me = await r.json();
+    if (r.ok) {
+      _me = await r.json();
+      const name = _me?.member?.name;
+      if (name) {
+        const el = document.getElementById("headerUserName");
+        if (el) el.textContent = name;
+        const btn = document.getElementById("myEntriesBtn");
+        if (btn) btn.style.display = "";
+      } else {
+        const btn = document.getElementById("myEntriesBtn");
+        if (btn) btn.style.display = "none";
+      }
+    }
   } catch {}
 }
 
