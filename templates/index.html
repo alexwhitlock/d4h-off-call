@@ -333,8 +333,8 @@
   .actions-cell { display: flex; gap: 5px; flex-wrap: nowrap; }
 
   /* ---- Add unavailable button ---- */
-  #addUnavailBtn { background: rgba(217,119,6,0.1); color: #b45309; border: 1px solid rgba(217,119,6,0.3); border-radius: 7px; padding: 5px 12px; font-size: 0.82rem; font-weight: 500; cursor: pointer; transition: background 0.15s; white-space: nowrap; }
-  #addUnavailBtn:hover { background: rgba(217,119,6,0.18); }
+  #addUnavailBtn { background: rgba(217,119,6,0.18); color: #fcd34d; border: 1px solid rgba(217,119,6,0.4); border-radius: 7px; padding: 5px 12px; font-size: 0.82rem; font-weight: 500; cursor: pointer; transition: background 0.15s; white-space: nowrap; flex-shrink: 0; }
+  #addUnavailBtn:hover { background: rgba(217,119,6,0.3); }
 
   /* ---- Modals ---- */
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 20px; }
@@ -406,6 +406,7 @@
     </div>
     <div class="header-spacer"></div>
     <span class="meta" id="metaInfo">Last update: &mdash;</span>
+    <button id="addUnavailBtn" onclick="openAddUnavail()">+ Unavailable to Deploy</button>
     <button id="refreshBtn" onclick="manualRefresh()">&#8635; Refresh</button>
   </div>
 </div>
@@ -469,9 +470,6 @@
   <div class="card" id="dutiesCard" style="display:none">
     <div class="card-header">
       <h2>Upcoming Entries</h2>
-      <div class="card-header-right">
-        <button id="addUnavailBtn" onclick="openAddUnavail()">+ Unavailable to Deploy</button>
-      </div>
     </div>
     <table id="dutiesTable"></table>
   </div>
