@@ -386,6 +386,53 @@
   .history-at { color: var(--text-muted); font-size: 0.77rem; }
   .history-changes { margin-top: 5px; display: flex; flex-direction: column; gap: 3px; }
   .history-change-item { font-size: 0.77rem; font-family: monospace; background: #f8fafc; padding: 2px 6px; border-radius: 3px; border: 1px solid var(--border); display: inline-block; }
+
+  /* ---- Table scroll wrapper ---- */
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* ---- Mobile ---- */
+  @media (max-width: 640px) {
+    /* Reduce content/card padding */
+    .content { padding: 0 10px; }
+    .card { padding: 14px 12px; margin-top: 14px; }
+
+    /* Header: title + refresh on line 1, group on line 2, add-unavail on line 3 */
+    .header { padding: 10px 14px; }
+    .header h1 { flex: 1; order: 1; font-size: 1rem; }
+    #refreshBtn { order: 2; }
+    .header-divider, .header-spacer, .meta { display: none; }
+    .group-row { order: 3; width: 100%; margin-top: 6px; }
+    .custom-select { min-width: 0; width: 100%; }
+    #addUnavailBtn { order: 4; width: 100%; text-align: center; margin-top: 4px; }
+
+    /* Card header controls */
+    .card-header { gap: 8px; }
+    .card-header h2 { font-size: 0.85rem; }
+    .range-btns button { padding: 4px 9px; font-size: 0.73rem; }
+    .view-toggle button { padding: 4px 10px; font-size: 0.75rem; }
+    .zoom-btns button { padding: 3px 9px; }
+
+    /* Gantt sort overlay — keep narrow label column on mobile */
+    #ganttSortOverlay { width: 110px; }
+    #ganttHint { font-size: 0.67rem; }
+
+    /* Duties table: let it scroll horizontally, extend edge-to-edge */
+    .table-wrap { margin: 0 -12px; }
+    table { font-size: 0.8rem; min-width: 540px; }
+    th, td { padding: 7px 10px; white-space: nowrap; }
+
+    /* Forms: stack date pickers vertically */
+    .form-row { flex-direction: column; gap: 0; }
+    .form-row .form-group { margin-bottom: 14px; }
+
+    /* Modals: slide up from bottom */
+    .modal-overlay { padding: 0; align-items: flex-end; }
+    .modal-box { border-radius: 16px 16px 0 0; max-height: 92vh; }
+
+    /* Chart height reduction */
+    #chartWrapper { height: 260px; }
+    #ganttWrapper { max-height: 400px; }
+  }
 </style>
 </head>
 <body>
@@ -471,7 +518,7 @@
     <div class="card-header">
       <h2>Upcoming Entries</h2>
     </div>
-    <table id="dutiesTable"></table>
+    <div class="table-wrap"><table id="dutiesTable"></table></div>
   </div>
 
 </div>
@@ -879,6 +926,7 @@ function setGanttRange(days) {
     btn.classList.toggle("active", days === null ? btn.dataset.days === "all" : Number(btn.dataset.days) === days);
   });
   ganttStart = new Date(); ganttStart.setHours(0,0,0,0);
+  const G_LABEL_W = getGanttLabelW();
   const availW = (document.getElementById("ganttWrapper").clientWidth || 800) - G_LABEL_W;
   if (days === null) {
     let maxDate = new Date(ganttStart); maxDate.setDate(maxDate.getDate() + 30);
@@ -1027,9 +1075,9 @@ function buildCoverageChart(entries, groupSize, maxDays = null) {
 /*  Gantt chart                                                         */
 /* ------------------------------------------------------------------ */
 
-const G_LABEL_W = 160;
 const G_ROW_H   = 36;
 const G_HDR_H   = 64;
+function getGanttLabelW() { return window.innerWidth < 640 ? 110 : 160; }
 
 let ganttStart      = (() => { const d = new Date(); d.setHours(0,0,0,0); return d; })();
 let ganttPPD        = 0;
@@ -1114,6 +1162,7 @@ function initGantt() {
 
 function renderGantt() {
   if (!_data) return;
+  const G_LABEL_W = getGanttLabelW();
   const hdrCanvas = document.getElementById("ganttHeaderCanvas");
   const canvas    = document.getElementById("ganttCanvas");
   const dpr    = window.devicePixelRatio || 1;
@@ -1344,7 +1393,7 @@ function renderGantt() {
 /* ---- Gantt interaction ---- */
 function _addGanttDrag(el) {
   el.addEventListener("mousedown", e => {
-    if (e.offsetX > G_LABEL_W) { ganttDragging = true; ganttDragX0 = e.offsetX; ganttDragDate0 = new Date(ganttStart); }
+    if (e.offsetX > getGanttLabelW()) { ganttDragging = true; ganttDragX0 = e.offsetX; ganttDragDate0 = new Date(ganttStart); }
   });
   el.addEventListener("mousemove", e => {
     if (!ganttDragging) return;
