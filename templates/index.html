@@ -360,15 +360,17 @@
   .btn-primary:disabled { opacity: 0.5; cursor: default; }
 
   /* ---- Member picker ---- */
-  .member-search-input { width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: 7px; font-size: 0.875rem; font-family: inherit; box-sizing: border-box; margin-bottom: 8px; }
+  .member-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 7px; }
+  .member-chips:empty { margin-bottom: 0; }
+  .member-chip { display: inline-flex; align-items: center; gap: 3px; background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; border-radius: 5px; padding: 3px 6px 3px 9px; font-size: 0.8rem; font-weight: 500; }
+  .member-chip-x { background: none; border: none; cursor: pointer; color: #93c5fd; padding: 0; font-size: 1.1rem; line-height: 1; display: flex; align-items: center; transition: color 0.1s; }
+  .member-chip-x:hover { color: #1e40af; }
+  .member-picker-wrap { position: relative; }
+  .member-search-input { width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: 7px; font-size: 0.875rem; font-family: inherit; box-sizing: border-box; }
   .member-search-input:focus { outline: none; border-color: var(--accent); }
-  .member-picker-list { max-height: 190px; overflow-y: auto; border: 1px solid var(--border); border-radius: 7px; }
-  .picker-item { display: flex; align-items: center; gap: 9px; padding: 7px 11px; cursor: pointer; font-size: 0.875rem; transition: background 0.1s; }
+  .member-picker-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; max-height: 200px; overflow-y: auto; border: 1px solid var(--border); border-radius: 7px; background: #fff; box-shadow: 0 4px 14px rgba(0,0,0,0.1); z-index: 100; display: none; }
+  .picker-item { padding: 8px 12px; cursor: pointer; font-size: 0.875rem; transition: background 0.1s; }
   .picker-item:hover { background: #f3f4f6; }
-  .picker-item input[type="checkbox"] { cursor: pointer; accent-color: var(--accent); flex-shrink: 0; }
-  .picker-item label { cursor: pointer; flex: 1; }
-  .picker-count { font-size: 0.78rem; color: var(--text-muted); margin-top: 6px; text-align: right; }
-  .picker-count strong { color: var(--accent); }
   .member-label-static { font-size: 0.9rem; font-weight: 500; color: var(--text); padding: 7px 10px; background: #f8fafc; border: 1px solid var(--border); border-radius: 7px; }
 
   /* ---- History timeline ---- */
@@ -532,9 +534,12 @@
     <div class="modal-body">
       <div id="memberPickerSection" class="form-group">
         <label>Members</label>
-        <input type="text" class="member-search-input" id="memberSearch" placeholder="Search members&hellip;" oninput="filterMemberPicker()">
-        <div class="member-picker-list" id="memberPickerList"></div>
-        <div class="picker-count">Selected: <strong id="pickerCount">0</strong></div>
+        <div id="memberChips" class="member-chips"></div>
+        <div class="member-picker-wrap">
+          <input type="text" class="member-search-input" id="memberSearch" placeholder="Search to add&hellip;" autocomplete="off"
+            oninput="filterMemberDropdown()" onfocus="filterMemberDropdown()" onblur="setTimeout(hideMemberDropdown, 150)">
+          <div class="member-picker-list" id="memberPickerList"></div>
+        </div>
       </div>
       <div id="memberLabelSection" class="form-group" style="display:none">
         <label>Member</label>
@@ -1609,55 +1614,62 @@ document.addEventListener("keydown", e => {
 
 /* ---- Member picker ---- */
 
+let _pickerSelected = new Map(); // id → {id, name}
+
 function renderMemberPicker() {
-  const meId    = _me?.member?.id || null;
-  const members = [..._allMembers];
-  const list    = document.getElementById("memberPickerList");
-
-  if (!members.length) {
-    list.innerHTML = `<div style="padding:10px;font-size:.85rem;color:var(--text-muted)">No members in current group</div>`;
-    updatePickerCount(); return;
+  const meId = _me?.member?.id || null;
+  _pickerSelected = new Map();
+  if (meId) {
+    const me = _allMembers.find(m => m.id === meId);
+    if (me) _pickerSelected.set(meId, me);
   }
-  list.innerHTML = members.map(m => {
-    const checked = meId && m.id === meId ? "checked" : "";
-    return `<div class="picker-item">
-      <input type="checkbox" id="pick_${m.id}" value="${escapeHtml(m.id)}" data-name="${escapeHtml(m.name)}" ${checked} onchange="updatePickerCount()">
-      <label for="pick_${m.id}">${escapeHtml(m.name)}</label>
-    </div>`;
-  }).join("");
-  updatePickerCount();
+  document.getElementById("memberSearch").value = "";
+  renderMemberChips();
+  hideMemberDropdown();
 }
 
-function filterMemberPicker() {
+function renderMemberChips() {
+  document.getElementById("memberChips").innerHTML = [..._pickerSelected.values()].map(m =>
+    `<span class="member-chip">${escapeHtml(m.name)}<button type="button" class="member-chip-x" onclick="removeMemberChip('${escapeHtml(m.id)}')">&#x2715;</button></span>`
+  ).join("");
+}
+
+function addMemberChip(id, name) {
+  _pickerSelected.set(id, { id, name });
+  renderMemberChips();
+  document.getElementById("memberSearch").value = "";
+  filterMemberDropdown();
+  document.getElementById("memberSearch").focus();
+}
+
+function removeMemberChip(id) {
+  _pickerSelected.delete(id);
+  renderMemberChips();
+  filterMemberDropdown();
+}
+
+function filterMemberDropdown() {
   const search  = (document.getElementById("memberSearch")?.value || "").toLowerCase();
-  const checked = new Set([...document.querySelectorAll("#memberPickerList input:checked")].map(c => c.value));
-  const members = [..._allMembers];
-  const visible = search ? members.filter(m => m.name.toLowerCase().includes(search)) : members;
-
-  const list = document.getElementById("memberPickerList");
+  const list    = document.getElementById("memberPickerList");
+  const visible = _allMembers.filter(m =>
+    !_pickerSelected.has(m.id) && (!search || m.name.toLowerCase().includes(search))
+  );
   if (!visible.length) {
-    list.innerHTML = `<div style="padding:10px;font-size:.85rem;color:var(--text-muted)">No members match</div>`;
-    updatePickerCount(); return;
+    list.innerHTML = `<div style="padding:10px;font-size:.85rem;color:var(--text-muted)">${search ? "No members match" : "All members selected"}</div>`;
+  } else {
+    list.innerHTML = visible.map(m =>
+      `<div class="picker-item" onmousedown="addMemberChip('${escapeHtml(m.id)}', '${escapeHtml(m.name)}')">${escapeHtml(m.name)}</div>`
+    ).join("");
   }
-  list.innerHTML = visible.map(m => {
-    const isChecked = checked.has(m.id) ? "checked" : "";
-    return `<div class="picker-item">
-      <input type="checkbox" id="pick_${m.id}" value="${escapeHtml(m.id)}" data-name="${escapeHtml(m.name)}" ${isChecked} onchange="updatePickerCount()">
-      <label for="pick_${m.id}">${escapeHtml(m.name)}</label>
-    </div>`;
-  }).join("");
-  updatePickerCount();
+  list.style.display = "";
 }
 
-function updatePickerCount() {
-  const n = document.querySelectorAll("#memberPickerList input:checked").length;
-  const el = document.getElementById("pickerCount");
-  if (el) el.textContent = n;
+function hideMemberDropdown() {
+  document.getElementById("memberPickerList").style.display = "none";
 }
 
 function getSelectedMembers() {
-  return [...document.querySelectorAll("#memberPickerList input:checked")]
-    .map(cb => ({ id: cb.value, name: cb.dataset.name }));
+  return [..._pickerSelected.values()];
 }
 
 /* ---- Submit / delete ---- */
