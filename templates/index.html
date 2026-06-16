@@ -1640,6 +1640,7 @@ async function loadMe() {
           const link = document.getElementById("allEntriesLink");
           if (link) link.style.display = "";
           if (btn) btn.classList.add("active");
+          if (_data) buildDutiesTable(_data.entries);
         }
       } else {
         const btn = document.getElementById("myEntriesBtn");
