@@ -162,6 +162,28 @@
   }
   .zoom-btns button:hover { border-color: var(--accent); color: var(--accent); }
 
+  /* ---- Calendar view ---- */
+  .cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .cal-nav button { background: none; border: 1px solid var(--border); border-radius: 6px; padding: 3px 12px; cursor: pointer; font-size: 1.15rem; color: var(--text-muted); line-height: 1.4; transition: border-color .12s, color .12s; }
+  .cal-nav button:hover { border-color: var(--accent); color: var(--accent); }
+  .cal-nav h3 { margin: 0; font-size: 0.98rem; font-weight: 600; color: var(--text); }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .cal-dow { text-align: center; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); padding-bottom: 6px; }
+  .cal-cell { min-height: 68px; border: 1px solid var(--border); border-radius: 7px; padding: 5px 6px; background: #fff; }
+  .cal-cell.other-month { opacity: 0.35; background: #f8fafc; }
+  .cal-cell.today { border-color: var(--accent); background: #eff6ff; }
+  .cal-day-num { font-size: 0.78rem; font-weight: 500; color: var(--text); margin-bottom: 2px; }
+  .cal-cell.today .cal-day-num { color: var(--accent); font-weight: 700; }
+  .cal-pill { font-size: 0.63rem; border-radius: 3px; padding: 1px 4px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.6; }
+  .cal-pill.off    { background: rgba(220,38,38,0.12); color: #b91c1c; }
+  .cal-pill.unavail { background: rgba(217,119,6,0.12); color: #b45309; }
+  @media (max-width: 600px) {
+    .cal-cell { min-height: 48px; padding: 3px 3px; }
+    .cal-pill { display: none; }
+    .cal-cell.has-off    { border-bottom: 3px solid rgba(220,38,38,0.6); }
+    .cal-cell.has-unavail { border-bottom: 3px solid rgba(217,119,6,0.6); }
+  }
+
   /* ---- Page nav bar (My Entries) ---- */
   #pageNav {
     background: #f8fafc;
@@ -569,12 +591,17 @@
     <div class="card-header">
       <h2 id="dutiesCardTitle">Upcoming Entries</h2>
       <div class="card-header-right">
+        <div class="view-toggle">
+          <button id="btnEntriesList" class="active" onclick="setEntriesView('list')">List</button>
+          <button id="btnEntriesCal" onclick="setEntriesView('cal')">Calendar</button>
+        </div>
         <select id="memberFilter" class="table-filter-select" onchange="setMemberFilter(this.value)">
           <option value="">All Members</option>
         </select>
       </div>
     </div>
-    <div class="table-wrap"><table id="dutiesTable"></table></div>
+    <div id="tableWrap" class="table-wrap"><table id="dutiesTable"></table></div>
+    <div id="calendarWrapper" style="display:none;padding:4px 0"></div>
   </div>
 
 </div>
@@ -1632,6 +1659,94 @@ function buildDutiesTable(d4hEntries) {
   }
   html += "</tbody>";
   document.getElementById("dutiesTable").innerHTML = html;
+  if (_entriesView === "cal") buildCalendar();
+}
+
+/* ------------------------------------------------------------------ */
+/*  Calendar view                                                       */
+/* ------------------------------------------------------------------ */
+
+let _calYear     = new Date().getFullYear();
+let _calMonth    = new Date().getMonth();
+let _entriesView = "list";
+
+function setEntriesView(v) {
+  _entriesView = v;
+  document.getElementById("btnEntriesList").classList.toggle("active", v === "list");
+  document.getElementById("btnEntriesCal").classList.toggle("active", v === "cal");
+  document.getElementById("tableWrap").style.display      = v === "list" ? "" : "none";
+  document.getElementById("calendarWrapper").style.display = v === "cal"  ? "" : "none";
+  if (v === "cal") buildCalendar();
+}
+
+function buildCalendar() {
+  if (!_data) return;
+  const year = _calYear, month = _calMonth;
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  const filterId = _tableFilter || null;
+  const d4hEntries    = (_data.entries || []).filter(e => e.type === "OFF" && (!filterId || (e.member?.id || "") === filterId));
+  const unavailEntries = _unavailable.filter(u => !u.deleted && (!filterId || u.member_id === filterId));
+
+  const firstDay = new Date(year, month, 1);
+  const lastDay  = new Date(year, month + 1, 0);
+  const calStart = new Date(year, month, 1 - firstDay.getDay());
+  const calEnd   = new Date(year, month + 1, 0 + (6 - lastDay.getDay()));
+
+  const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+  let html = `<div class="cal-nav">
+    <button onclick="calNav(-1)">&#8249;</button>
+    <h3>${MONTHS[month]} ${year}</h3>
+    <button onclick="calNav(1)">&#8250;</button>
+  </div>
+  <div class="cal-grid">
+    <div class="cal-dow">Sun</div><div class="cal-dow">Mon</div><div class="cal-dow">Tue</div>
+    <div class="cal-dow">Wed</div><div class="cal-dow">Thu</div><div class="cal-dow">Fri</div>
+    <div class="cal-dow">Sat</div>`;
+
+  const d = new Date(calStart);
+  while (d <= calEnd) {
+    const isToday    = d.getTime() === today.getTime();
+    const isThisMon  = d.getMonth() === month;
+
+    const ocHere = d4hEntries.filter(e => {
+      const s  = d4hDate(e.startsAt);
+      const en = d4hDate(e.endsAt || e.startsAt);
+      return s <= d && d <= en;
+    });
+    const uvHere = unavailEntries.filter(u => {
+      const s  = new Date(u.starts_at); s.setHours(0,0,0,0);
+      const en = new Date(u.ends_at || u.starts_at); en.setHours(0,0,0,0);
+      return s <= d && d <= en;
+    });
+
+    const cls = ["cal-cell",
+      !isThisMon  && "other-month",
+      isToday     && "today",
+      ocHere.length && "has-off",
+      uvHere.length && "has-unavail"
+    ].filter(Boolean).join(" ");
+
+    let pills = "";
+    if (ocHere.length) pills += `<div class="cal-pill off">Off-Call</div>`;
+    uvHere.forEach(u => {
+      pills += `<div class="cal-pill unavail">${escapeHtml(u.notes || "Unavailable")}</div>`;
+    });
+
+    html += `<div class="${cls}"><div class="cal-day-num">${d.getDate()}</div>${pills}</div>`;
+    d.setDate(d.getDate() + 1);
+  }
+
+  html += `</div>`;
+  document.getElementById("calendarWrapper").innerHTML = html;
+}
+
+function calNav(dir) {
+  _calMonth += dir;
+  if (_calMonth < 0)  { _calMonth = 11; _calYear--; }
+  if (_calMonth > 11) { _calMonth = 0;  _calYear++; }
+  buildCalendar();
 }
 
 /* ------------------------------------------------------------------ */
