@@ -1893,12 +1893,16 @@ function updateOcDuration() {
 }
 
 async function submitOffCall() {
-  const starts_at = document.getElementById("ocStart").value;
-  const ends_at   = document.getElementById("ocEnd").value;
+  const rawStart  = document.getElementById("ocStart").value;
+  const rawEnd    = document.getElementById("ocEnd").value;
   const notes     = document.getElementById("ocNotes").value.trim();
 
-  if (!starts_at || !ends_at) { alert("Please fill in start and end date/time."); return; }
-  if (ends_at <= starts_at)   { alert("End must be after start."); return; }
+  if (!rawStart || !rawEnd) { alert("Please fill in start and end date/time."); return; }
+  if (rawEnd <= rawStart)   { alert("End must be after start."); return; }
+
+  // datetime-local gives local time; convert to UTC ISO so D4H stores the correct moment
+  const starts_at = new Date(rawStart).toISOString();
+  const ends_at   = new Date(rawEnd).toISOString();
 
   const btn = document.getElementById("ocSubmitBtn");
   btn.disabled = true; btn.textContent = "Saving…";
