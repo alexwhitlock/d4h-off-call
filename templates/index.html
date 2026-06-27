@@ -676,10 +676,17 @@ function formatDateTime(str) {
   if (!str) return "";
   const d = new Date(str);
   if (isNaN(d)) return str;
-  return d.toLocaleString("en-CA", { year:"numeric", month:"short", day:"numeric", hour:"2-digit", minute:"2-digit" });
+  return d.toLocaleString("en-CA", { year:"numeric", month:"short", day:"numeric", hour:"2-digit", minute:"2-digit", hour12: false });
 }
 
 function ymdFromDate(d) { return d.toISOString().slice(0, 10); }
+
+function d4hDate(str) {
+  // D4H API returns UTC; use the UTC calendar date as the intended local date
+  // so "2024-06-27T00:00:00Z" → Jun 27 local midnight regardless of browser timezone
+  const d = new Date(str);
+  return isNaN(d) ? new Date(0) : new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+}
 
 function formatDuration(ms) {
   if (!ms || ms <= 0) return "";
@@ -1007,7 +1014,7 @@ function setGanttRange(days) {
   if (days === null) {
     let maxDate = new Date(ganttStart); maxDate.setDate(maxDate.getDate() + 30);
     for (const e of (_data?.entries || [])) {
-      const d = new Date(e.endsAt || e.startsAt);
+      const d = d4hDate(e.endsAt || e.startsAt);
       if (!isNaN(d) && d > maxDate) maxDate = d;
     }
     const totalDays = Math.max(30, Math.ceil((maxDate - ganttStart) / 86400000) + 7);
@@ -1053,8 +1060,8 @@ function buildCoverageChart(entries, groupSize, maxDays = null) {
 
   for (const e of entries) {
     if (e.type !== "OFF") continue;
-    const s  = new Date(e.startsAt);
-    const en = new Date(e.endsAt || e.startsAt);
+    const s  = d4hDate(e.startsAt);
+    const en = d4hDate(e.endsAt || e.startsAt);
     days.forEach((d, i) => {
       const dEnd = new Date(d); dEnd.setHours(23,59,59,999);
       if (s <= dEnd && en >= d) onCall[i]--;
@@ -1072,8 +1079,8 @@ function buildCoverageChart(entries, groupSize, maxDays = null) {
       if (us > dEnd || ue < d) return;
       const alreadyOff = entries.some(e => {
         if (e.type !== "OFF" || (e.member?.id || "") !== u.member_id) return false;
-        const es = new Date(e.startsAt);
-        const ee = new Date(e.endsAt || e.startsAt);
+        const es = d4hDate(e.startsAt);
+        const ee = d4hDate(e.endsAt || e.startsAt);
         return es <= dEnd && ee >= d;
       });
       if (!alreadyOff) deployable[i]--;
@@ -1300,8 +1307,8 @@ function renderGantt() {
     );
     const y = row * G_ROW_H + BAR_PAD;
     for (const e of rowEntries) {
-      const s  = new Date(e.startsAt);
-      const en = new Date(e.endsAt || e.startsAt);
+      const s  = d4hDate(e.startsAt);
+      const en = d4hDate(e.endsAt || e.startsAt);
       const x1 = Math.max(dateToX(s), G_LABEL_W), x2 = Math.min(dateToX(en), W);
       const bw = x2 - x1;
       if (bw <= 0) continue;
