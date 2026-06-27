@@ -174,6 +174,19 @@ def _strip_entry(entry):
     }
 
 
+def _to_iso(dt_str):
+    """Normalize a datetime string to ISO 8601 UTC (YYYY-MM-DDTHH:MM:SSZ)."""
+    if not dt_str:
+        return dt_str
+    if dt_str.endswith("Z") or "+" in dt_str[10:]:
+        return dt_str
+    if len(dt_str) == 16:  # YYYY-MM-DDTHH:MM
+        return dt_str + ":00Z"
+    if len(dt_str) == 19:  # YYYY-MM-DDTHH:MM:SS
+        return dt_str + "Z"
+    return dt_str
+
+
 def _evt(data):
     return f"data: {json.dumps(data)}\n\n"
 
@@ -335,9 +348,9 @@ def post_duty():
     if not member_id or not starts_at or not ends_at:
         return jsonify({"error": "member_id, starts_at, ends_at required"}), 400
     try:
-        url  = f"{BASE_URL}/team/{TEAM_ID}/duties"
+        url  = f"{BASE_URL}/team/{TEAM_ID}/duties/add-duty-period"
         payload = {"type": "OFF", "memberId": int(member_id),
-                   "startsAt": starts_at, "endsAt": ends_at, "notes": notes}
+                   "startsAt": _to_iso(starts_at), "endsAt": _to_iso(ends_at), "notes": notes}
         resp = requests.post(url, headers={**_headers(), "Content-Type": "application/json"},
                              json=payload, timeout=30)
         resp.raise_for_status()
@@ -355,13 +368,13 @@ def put_duty(duty_id):
     ends_at   = body.get("ends_at")
     notes     = body.get("notes")
     try:
-        url     = f"{BASE_URL}/team/{TEAM_ID}/duties/{duty_id}"
+        url     = f"{BASE_URL}/team/{TEAM_ID}/duties/{duty_id}/update-duty-period"
         payload = {}
-        if starts_at is not None: payload["startsAt"] = starts_at
-        if ends_at   is not None: payload["endsAt"]   = ends_at
+        if starts_at is not None: payload["startsAt"] = _to_iso(starts_at)
+        if ends_at   is not None: payload["endsAt"]   = _to_iso(ends_at)
         if notes     is not None: payload["notes"]    = notes
-        resp = requests.put(url, headers={**_headers(), "Content-Type": "application/json"},
-                            json=payload, timeout=30)
+        resp = requests.post(url, headers={**_headers(), "Content-Type": "application/json"},
+                             json=payload, timeout=30)
         resp.raise_for_status()
         return jsonify({"entry": _strip_entry(resp.json())})
     except requests.HTTPError as e:
