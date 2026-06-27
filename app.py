@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, render_template, request, Response, stream_with_context
+from flask import Flask, jsonify, make_response, render_template, request, Response, stream_with_context
 import requests
 import os
 import json
@@ -277,7 +277,10 @@ def _stream_data(group_id):
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    resp = make_response(render_template("index.html"))
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    resp.headers["Pragma"] = "no-cache"
+    return resp
 
 
 @app.route("/api/me")
