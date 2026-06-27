@@ -162,27 +162,11 @@
   }
   .zoom-btns button:hover { border-color: var(--accent); color: var(--accent); }
 
-  /* ---- Calendar view ---- */
-  .cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-  .cal-nav button { background: none; border: 1px solid var(--border); border-radius: 6px; padding: 3px 12px; cursor: pointer; font-size: 1.15rem; color: var(--text-muted); line-height: 1.4; transition: border-color .12s, color .12s; }
-  .cal-nav button:hover { border-color: var(--accent); color: var(--accent); }
-  .cal-nav h3 { margin: 0; font-size: 0.98rem; font-weight: 600; color: var(--text); }
-  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
-  .cal-dow { text-align: center; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); padding-bottom: 6px; }
-  .cal-cell { min-height: 68px; border: 1px solid var(--border); border-radius: 7px; padding: 5px 6px; background: #fff; }
-  .cal-cell.other-month { opacity: 0.35; background: #f8fafc; }
-  .cal-cell.today { border-color: var(--accent); background: #eff6ff; }
-  .cal-day-num { font-size: 0.78rem; font-weight: 500; color: var(--text); margin-bottom: 2px; }
-  .cal-cell.today .cal-day-num { color: var(--accent); font-weight: 700; }
-  .cal-pill { font-size: 0.63rem; border-radius: 3px; padding: 1px 4px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.6; }
-  .cal-pill.off    { background: rgba(220,38,38,0.12); color: #b91c1c; }
-  .cal-pill.unavail { background: rgba(217,119,6,0.12); color: #b45309; }
-  @media (max-width: 600px) {
-    .cal-cell { min-height: 48px; padding: 3px 3px; }
-    .cal-pill { display: none; }
-    .cal-cell.has-off    { border-bottom: 3px solid rgba(220,38,38,0.6); }
-    .cal-cell.has-unavail { border-bottom: 3px solid rgba(217,119,6,0.6); }
-  }
+  /* ---- My Entries Gantt ---- */
+  #myGanttSection { margin-bottom: 16px; }
+  #myGanttWrapper { overflow-x: auto; overflow-y: hidden; border: 1px solid var(--border); border-radius: 8px; cursor: grab; user-select: none; -webkit-user-select: none; }
+  #myGanttWrapper:active { cursor: grabbing; }
+  #myGanttHeaderWrap { position: sticky; top: 0; z-index: 2; background: #f8fafc; overflow: hidden; }
 
   /* ---- Page nav bar (My Entries) ---- */
   #pageNav {
@@ -591,17 +575,31 @@
     <div class="card-header">
       <h2 id="dutiesCardTitle">Upcoming Entries</h2>
       <div class="card-header-right">
-        <div class="view-toggle">
-          <button id="btnEntriesList" class="active" onclick="setEntriesView('list')">List</button>
-          <button id="btnEntriesCal" onclick="setEntriesView('cal')">Calendar</button>
+        <div class="range-btns" id="myGanttRangeBtns" style="display:none">
+          <button onclick="setMyGanttRange(30)"  data-days="30">1M</button>
+          <button onclick="setMyGanttRange(90)"  data-days="90"  class="active">3M</button>
+          <button onclick="setMyGanttRange(180)" data-days="180">6M</button>
+          <button onclick="setMyGanttRange(null)" data-days="all">All</button>
+        </div>
+        <div class="zoom-btns" id="myGanttZoomBtns" style="display:none">
+          <button onclick="myGanttZoom(-1)" title="Zoom out">&#8722;</button>
+          <button onclick="myGanttZoom(1)"  title="Zoom in">&#43;</button>
         </div>
         <select id="memberFilter" class="table-filter-select" onchange="setMemberFilter(this.value)">
           <option value="">All Members</option>
         </select>
       </div>
     </div>
+    <div id="myGanttSection" style="display:none">
+      <div id="myGanttWrapper">
+        <div id="myGanttHeaderWrap"><canvas id="myGanttHeaderCanvas"></canvas></div>
+        <canvas id="myGanttCanvas"></canvas>
+      </div>
+      <div style="margin-top:4px;font-size:0.72rem;color:var(--text-muted);text-align:center">
+        Drag to pan &bull; <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(220,38,38,0.55);vertical-align:middle"></span> Off-Call &nbsp;<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(217,119,6,0.55);vertical-align:middle"></span> Unavailable to Deploy
+      </div>
+    </div>
     <div id="tableWrap" class="table-wrap"><table id="dutiesTable"></table></div>
-    <div id="calendarWrapper" style="display:none;padding:4px 0"></div>
   </div>
 
 </div>
@@ -1659,94 +1657,265 @@ function buildDutiesTable(d4hEntries) {
   }
   html += "</tbody>";
   document.getElementById("dutiesTable").innerHTML = html;
-  if (_entriesView === "cal") buildCalendar();
+  if (_tableFilter) initMyGantt();
 }
 
 /* ------------------------------------------------------------------ */
-/*  Calendar view                                                       */
+/*  My Entries Gantt                                                    */
 /* ------------------------------------------------------------------ */
 
-let _calYear     = new Date().getFullYear();
-let _calMonth    = new Date().getMonth();
-let _entriesView = "list";
+let myGanttStart = new Date(); myGanttStart.setHours(0,0,0,0);
+let myGanttPPD   = 14;
+let _myGanttInited = false;
 
-function setEntriesView(v) {
-  _entriesView = v;
-  document.getElementById("btnEntriesList").classList.toggle("active", v === "list");
-  document.getElementById("btnEntriesCal").classList.toggle("active", v === "cal");
-  document.getElementById("tableWrap").style.display      = v === "list" ? "" : "none";
-  document.getElementById("calendarWrapper").style.display = v === "cal"  ? "" : "none";
-  if (v === "cal") buildCalendar();
+function initMyGantt() {
+  if (!_data || !_tableFilter) return;
+  document.getElementById("myGanttSection").style.display = "";
+  const wrapper   = document.getElementById("myGanttWrapper");
+  const hdrCanvas = document.getElementById("myGanttHeaderCanvas");
+  const canvas    = document.getElementById("myGanttCanvas");
+  const dpr  = window.devicePixelRatio || 1;
+  const cssW = wrapper.clientWidth;
+
+  hdrCanvas.style.width  = "100%";
+  hdrCanvas.style.height = G_HDR_H + "px";
+  hdrCanvas.width        = cssW * dpr;
+  hdrCanvas.height       = G_HDR_H * dpr;
+
+  canvas.style.width  = "100%";
+  canvas.style.height = (G_ROW_H + 4) + "px";
+  canvas.width        = cssW * dpr;
+  canvas.height       = (G_ROW_H + 4) * dpr;
+
+  if (!_myGanttInited) {
+    _myGanttInited = true;
+    _addMyGanttDrag(canvas);
+    _addMyGanttDrag(hdrCanvas);
+    new ResizeObserver(() => { if (_tableFilter && _data) initMyGantt(); }).observe(wrapper);
+    setMyGanttRange(90);
+  } else {
+    renderMyGantt();
+  }
 }
 
-function buildCalendar() {
-  if (!_data) return;
-  const year = _calYear, month = _calMonth;
-  const today = new Date(); today.setHours(0,0,0,0);
+function renderMyGantt() {
+  if (!_data || !_tableFilter) return;
+  const hdrCanvas = document.getElementById("myGanttHeaderCanvas");
+  const canvas    = document.getElementById("myGanttCanvas");
+  if (!canvas || !canvas.width) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W   = canvas.width / dpr;
+  const H   = canvas.height / dpr;
 
-  const filterId = _tableFilter || null;
-  const d4hEntries    = (_data.entries || []).filter(e => e.type === "OFF" && (!filterId || (e.member?.id || "") === filterId));
-  const unavailEntries = _unavailable.filter(u => !u.deleted && (!filterId || u.member_id === filterId));
+  const entries       = (_data.entries || []).filter(e => e.type === "OFF" && (e.member?.id || "") === _tableFilter);
+  const unavailItems  = _unavailable.filter(u => !u.deleted && u.member_id === _tableFilter);
+  const startMs       = myGanttStart.getTime();
+  const endDate       = new Date(startMs + (W / myGanttPPD) * 86400000);
+  const years         = new Set();
+  for (let y = myGanttStart.getFullYear(); y <= endDate.getFullYear(); y++) years.add(y);
+  const hmap    = getHolidayMapForYears([...years]);
+  const dateToX = d => (d.getTime() - startMs) / 86400000 * myGanttPPD;
 
-  const firstDay = new Date(year, month, 1);
-  const lastDay  = new Date(year, month + 1, 0);
-  const calStart = new Date(year, month, 1 - firstDay.getDay());
-  const calEnd   = new Date(year, month + 1, 0 + (6 - lastDay.getDay()));
+  /* ---- body canvas ---- */
+  const ctx = canvas.getContext("2d");
+  ctx.save(); ctx.scale(dpr, dpr);
+  ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, W, H);
 
-  const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-
-  let html = `<div class="cal-nav">
-    <button onclick="calNav(-1)">&#8249;</button>
-    <h3>${MONTHS[month]} ${year}</h3>
-    <button onclick="calNav(1)">&#8250;</button>
-  </div>
-  <div class="cal-grid">
-    <div class="cal-dow">Sun</div><div class="cal-dow">Mon</div><div class="cal-dow">Tue</div>
-    <div class="cal-dow">Wed</div><div class="cal-dow">Thu</div><div class="cal-dow">Fri</div>
-    <div class="cal-dow">Sat</div>`;
-
-  const d = new Date(calStart);
-  while (d <= calEnd) {
-    const isToday    = d.getTime() === today.getTime();
-    const isThisMon  = d.getMonth() === month;
-
-    const ocHere = d4hEntries.filter(e => {
-      const s  = d4hDate(e.startsAt);
-      const en = d4hDate(e.endsAt || e.startsAt);
-      return s <= d && d <= en;
-    });
-    const uvHere = unavailEntries.filter(u => {
-      const s  = new Date(u.starts_at); s.setHours(0,0,0,0);
-      const en = new Date(u.ends_at || u.starts_at); en.setHours(0,0,0,0);
-      return s <= d && d <= en;
-    });
-
-    const cls = ["cal-cell",
-      !isThisMon  && "other-month",
-      isToday     && "today",
-      ocHere.length && "has-off",
-      uvHere.length && "has-unavail"
-    ].filter(Boolean).join(" ");
-
-    let pills = "";
-    if (ocHere.length) pills += `<div class="cal-pill off">Off-Call</div>`;
-    uvHere.forEach(u => {
-      pills += `<div class="cal-pill unavail">${escapeHtml(u.notes || "Unavailable")}</div>`;
-    });
-
-    html += `<div class="${cls}"><div class="cal-day-num">${d.getDate()}</div>${pills}</div>`;
-    d.setDate(d.getDate() + 1);
+  /* Weekend/holiday shading */
+  { let d = new Date(myGanttStart); d.setHours(0,0,0,0);
+    while (d <= endDate) {
+      const x1 = dateToX(d), x2 = x1 + myGanttPPD;
+      if (x1 > W) break;
+      const ymd = ymdFromDate(d), dow = d.getDay();
+      if (hmap[ymd] || dow === 0 || dow === 6) {
+        ctx.fillStyle = hmap[ymd] ? "rgba(59,130,246,0.10)" : "rgba(148,163,184,0.13)";
+        ctx.fillRect(Math.max(x1,0), 0, Math.min(x2,W) - Math.max(x1,0), H);
+      }
+      d.setDate(d.getDate() + 1);
+    }
   }
 
-  html += `</div>`;
-  document.getElementById("calendarWrapper").innerHTML = html;
+  /* Bars */
+  const BAR_H = G_ROW_H - 10, BAR_PAD = 5;
+  for (const e of entries) {
+    const s = d4hDate(e.startsAt), en = d4hDate(e.endsAt || e.startsAt);
+    const x1 = Math.max(dateToX(s), 0), x2 = Math.min(dateToX(en), W);
+    const bw = x2 - x1; if (bw <= 0) continue;
+    const r = Math.min(4, bw/2, BAR_H/2);
+    ctx.fillStyle = "rgba(220,38,38,0.55)";
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x1, BAR_PAD, bw, BAR_H, r); else ctx.rect(x1, BAR_PAD, bw, BAR_H);
+    ctx.fill();
+  }
+  for (const u of unavailItems) {
+    const s = new Date(u.starts_at), en = new Date(u.ends_at || u.starts_at);
+    const x1 = Math.max(dateToX(s), 0), x2 = Math.min(dateToX(en), W);
+    const bw = x2 - x1; if (bw <= 0) continue;
+    const r = Math.min(4, bw/2, BAR_H/2);
+    ctx.fillStyle = "rgba(217,119,6,0.55)";
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x1, BAR_PAD, bw, BAR_H, r); else ctx.rect(x1, BAR_PAD, bw, BAR_H);
+    ctx.fill();
+  }
+
+  /* Vertical grid lines */
+  { let d = new Date(myGanttStart); d.setHours(0,0,0,0);
+    while (d <= endDate) {
+      const x = dateToX(d), dow = d.getDay();
+      if (x > W) break;
+      if (d.getDate() === 1)                  { ctx.strokeStyle = "rgba(100,116,139,0.4)"; ctx.lineWidth = 1; }
+      else if (dow === 1 && myGanttPPD >= 5)  { ctx.strokeStyle = "rgba(229,231,235,0.9)"; ctx.lineWidth = 1; }
+      else if (myGanttPPD >= 18)              { ctx.strokeStyle = "rgba(229,231,235,0.6)"; ctx.lineWidth = 0.5; }
+      else { d.setDate(d.getDate() + 1); continue; }
+      ctx.beginPath(); ctx.moveTo(x+0.5, 0); ctx.lineTo(x+0.5, H); ctx.stroke();
+      d.setDate(d.getDate() + 1);
+    }
+  }
+
+  /* Today line */
+  { const today = new Date(); today.setHours(0,0,0,0);
+    const tx = dateToX(today);
+    if (tx >= 0 && tx <= W) {
+      ctx.strokeStyle = "rgba(100,116,139,0.6)"; ctx.lineWidth = 1.5;
+      ctx.setLineDash([4,3]);
+      ctx.beginPath(); ctx.moveTo(tx, 0); ctx.lineTo(tx, H); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+  ctx.restore();
+
+  /* ---- header canvas ---- */
+  const hc = hdrCanvas.getContext("2d");
+  hc.save(); hc.scale(dpr, dpr);
+  const hW = hdrCanvas.width / dpr;
+  hc.fillStyle = "#f8fafc"; hc.fillRect(0, 0, hW, G_HDR_H);
+
+  /* Weekend/holiday shading in header */
+  { let d = new Date(myGanttStart); d.setHours(0,0,0,0);
+    while (d <= endDate) {
+      const x1 = dateToX(d), x2 = x1 + myGanttPPD;
+      if (x1 > hW) break;
+      const ymd = ymdFromDate(d), dow = d.getDay();
+      const cx1 = Math.max(x1,0), cx2 = Math.min(x2,hW);
+      if (cx2 > cx1 && (hmap[ymd] || dow === 0 || dow === 6)) {
+        hc.fillStyle = hmap[ymd] ? "rgba(59,130,246,0.10)" : "rgba(148,163,184,0.13)";
+        hc.fillRect(cx1, 0, cx2-cx1, G_HDR_H);
+      }
+      d.setDate(d.getDate() + 1);
+    }
+  }
+
+  /* Date labels */
+  const showDay  = myGanttPPD >= 18;
+  const showWeek = myGanttPPD >= 5;
+  { let d = new Date(myGanttStart); d.setHours(0,0,0,0);
+    let lastMonthX = -999;
+    const holRowRight = [0, 0];
+    while (d <= endDate) {
+      const x = dateToX(d), dow = d.getDay(), ymd = ymdFromDate(d), isHol = !!hmap[ymd];
+      if (d.getDate() === 1 || d.getTime() === myGanttStart.getTime()) {
+        if (x - lastMonthX > 50) {
+          hc.textAlign = "left"; hc.font = "bold 11px system-ui"; hc.fillStyle = "#1e40af";
+          hc.fillText(d.toLocaleDateString("en-CA", { month: "short", year: "numeric" }), Math.max(x,0)+2, 11);
+          lastMonthX = x;
+        }
+      }
+      if (isHol && myGanttPPD >= 5) {
+        const hx = Math.max(x+2, 2);
+        if (hx < hW - 12) {
+          hc.textAlign = "left"; hc.font = "bold 10px system-ui"; hc.fillStyle = "#1d4ed8";
+          const text = hmap[ymd], drawn = Math.min(hc.measureText(text).width, 130);
+          const r = hx > holRowRight[0] + 4 ? 0 : 1;
+          hc.fillText(text, hx, r === 0 ? 27 : 39, 130);
+          holRowRight[r] = hx + drawn;
+        }
+      }
+      if (showDay) {
+        const cx = x + myGanttPPD / 2;
+        hc.textAlign = "center"; hc.font = "11px system-ui";
+        hc.fillStyle = isHol ? "#1d4ed8" : (dow === 0 || dow === 6) ? "#9ca3af" : "#374151";
+        hc.fillText(d.getDate(), cx, G_HDR_H - 18);
+        hc.font = "10px system-ui"; hc.fillStyle = "#9ca3af";
+        hc.fillText(["S","M","T","W","T","F","S"][dow], cx, G_HDR_H - 5);
+      } else if (showWeek && dow === 1) {
+        hc.textAlign = "left"; hc.font = "11px system-ui"; hc.fillStyle = "#374151";
+        hc.fillText(d.toLocaleDateString("en-CA", { month: "short", day: "numeric" }), Math.max(x+2,2), G_HDR_H - 10);
+      }
+      d.setDate(d.getDate() + 1);
+    }
+  }
+
+  /* Today line in header */
+  { const today = new Date(); today.setHours(0,0,0,0);
+    const tx = dateToX(today);
+    if (tx >= 0 && tx <= hW) {
+      hc.strokeStyle = "rgba(100,116,139,0.6)"; hc.lineWidth = 1.5;
+      hc.setLineDash([4,3]);
+      hc.beginPath(); hc.moveTo(tx, 0); hc.lineTo(tx, G_HDR_H); hc.stroke();
+      hc.setLineDash([]);
+    }
+  }
+
+  /* Bottom border */
+  hc.strokeStyle = "#e5e7eb"; hc.lineWidth = 1;
+  hc.beginPath(); hc.moveTo(0, G_HDR_H - 0.5); hc.lineTo(hW, G_HDR_H - 0.5); hc.stroke();
+  hc.restore();
 }
 
-function calNav(dir) {
-  _calMonth += dir;
-  if (_calMonth < 0)  { _calMonth = 11; _calYear--; }
-  if (_calMonth > 11) { _calMonth = 0;  _calYear++; }
-  buildCalendar();
+function setMyGanttRange(days) {
+  document.querySelectorAll("#myGanttRangeBtns button").forEach(btn => {
+    btn.classList.toggle("active", days === null ? btn.dataset.days === "all" : Number(btn.dataset.days) === days);
+  });
+  myGanttStart = new Date(); myGanttStart.setHours(0,0,0,0);
+  const w = document.getElementById("myGanttWrapper")?.clientWidth || 800;
+  if (days !== null) {
+    myGanttPPD = w / days;
+  } else {
+    const allDates = [
+      ...(_data?.entries || []).filter(e => e.type === "OFF" && (e.member?.id || "") === _tableFilter)
+        .flatMap(e => [new Date(e.startsAt), new Date(e.endsAt || e.startsAt)]),
+      ..._unavailable.filter(u => !u.deleted && u.member_id === _tableFilter)
+        .flatMap(u => [new Date(u.starts_at), new Date(u.ends_at || u.starts_at)])
+    ];
+    if (allDates.length) {
+      const minT = new Date(Math.min(...allDates.map(d => d.getTime()))); minT.setHours(0,0,0,0);
+      const maxT = new Date(Math.max(...allDates.map(d => d.getTime())));
+      const span = Math.max(1, (maxT - minT) / 86400000 + 14);
+      myGanttStart = minT;
+      myGanttPPD   = w / span;
+    } else {
+      myGanttPPD = w / 90;
+    }
+  }
+  renderMyGantt();
+}
+
+function myGanttZoom(dir) {
+  myGanttPPD = Math.max(1.5, Math.min(80, myGanttPPD * (dir > 0 ? 1.4 : 1/1.4)));
+  renderMyGantt();
+}
+
+function _addMyGanttDrag(el) {
+  let dragging = false, dragX0 = 0, dragDate0 = new Date();
+  el.addEventListener("mousedown", e => { dragging = true; dragX0 = e.offsetX; dragDate0 = new Date(myGanttStart); });
+  el.addEventListener("mousemove", e => {
+    if (!dragging) return;
+    myGanttStart = new Date(dragDate0.getTime() - (e.offsetX - dragX0) * 86400000 / myGanttPPD);
+    renderMyGantt();
+  });
+  const stop = () => { dragging = false; };
+  el.addEventListener("mouseup", stop);
+  el.addEventListener("mouseleave", stop);
+  el.addEventListener("touchstart", e => {
+    if (e.touches.length === 1) { dragging = true; dragX0 = e.touches[0].clientX; dragDate0 = new Date(myGanttStart); }
+  }, { passive: true });
+  el.addEventListener("touchmove", e => {
+    if (e.touches.length === 1 && dragging) {
+      myGanttStart = new Date(dragDate0.getTime() - (e.touches[0].clientX - dragX0) * 86400000 / myGanttPPD);
+      renderMyGantt();
+    }
+  }, { passive: true });
+  el.addEventListener("touchend", () => { dragging = false; });
 }
 
 /* ------------------------------------------------------------------ */
@@ -1793,6 +1962,8 @@ async function loadMe() {
           document.getElementById("pageNav").style.display = "";
           const sel = document.getElementById("memberFilter");
           if (sel) sel.style.display = "none";
+          document.getElementById("myGanttRangeBtns").style.display = "";
+          document.getElementById("myGanttZoomBtns").style.display  = "";
           if (btn) btn.classList.add("active");
           if (_data) buildDutiesTable(_data.entries);
         }
@@ -1815,6 +1986,7 @@ async function loadUnavailable() {
   try {
     const r = await fetch("/api/unavailable");
     if (r.ok) { const b = await r.json(); _unavailable = b.entries || []; }
+    if (_myGanttInited) renderMyGantt();
   } catch {}
 }
 
