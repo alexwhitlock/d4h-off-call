@@ -162,6 +162,31 @@
   }
   .zoom-btns button:hover { border-color: var(--accent); color: var(--accent); }
 
+  /* ---- Page nav bar (My Entries) ---- */
+  #pageNav {
+    background: #f8fafc;
+    border-bottom: 1px solid var(--border);
+    padding: 8px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  #pageNav a {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+    padding: 4px 10px;
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    transition: background 0.15s;
+  }
+  #pageNav a:hover { background: #eff6ff; }
+  #pageNav h2 { margin: 0; font-size: 1rem; font-weight: 600; color: var(--text); }
+
   /* ---- Content ---- */
   .content { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
 
@@ -472,18 +497,23 @@
     <div class="header-spacer"></div>
     <span class="meta" id="metaInfo">Last update: &mdash;</span>
     <span id="headerUserName"></span>
-    <button id="myEntriesBtn" onclick="toggleMyEntriesFilter()" style="display:none">My Entries</button>
+    <button id="myEntriesBtn" onclick="goMyEntries()" style="display:none">My Entries</button>
     <button id="addOffCallBtn" onclick="openAddOffCall()">+ Off-Call</button>
     <button id="addUnavailBtn" onclick="openAddUnavail()">+ Unavailable to Deploy</button>
     <button id="refreshBtn" onclick="manualRefresh()">&#8635; Refresh</button>
   </div>
 </div>
 
+<div id="pageNav" style="display:none">
+  <a href="/">&larr; Back</a>
+  <h2 id="pageNavTitle">My Entries</h2>
+</div>
+
 <div class="content">
 
   <div id="errorBanner"></div>
 
-  <div class="card">
+  <div class="card" id="coverageCard">
     <div class="card-header">
       <h2>Coverage Overview</h2>
       <div class="card-header-right">
@@ -537,7 +567,7 @@
 
   <div class="card" id="dutiesCard" style="display:none">
     <div class="card-header">
-      <h2>Upcoming Entries</h2>
+      <h2 id="dutiesCardTitle">Upcoming Entries</h2>
       <div class="card-header-right">
         <select id="memberFilter" class="table-filter-select" onchange="setMemberFilter(this.value)">
           <option value="">All Members</option>
@@ -614,7 +644,7 @@
 <div id="offCallModal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeOffCallModal()">
   <div class="modal-box">
     <div class="modal-header">
-      <h3 id="offCallModalTitle">Add Off-Call Entry</h3>
+      <h3 id="offCallModalTitle">Add D4H Off-Call Entry</h3>
       <button class="modal-close" onclick="closeOffCallModal()">&#10005;</button>
     </div>
     <div class="modal-body">
@@ -1511,6 +1541,10 @@ new ResizeObserver(() => {
 /*  Duties table                                                        */
 /* ------------------------------------------------------------------ */
 
+function goMyEntries() {
+  window.location.href = "/?my=1";
+}
+
 function toggleMyEntriesFilter() {
   const myId = _me?.member?.id || null;
   if (!myId) return;
@@ -1634,6 +1668,17 @@ async function loadMe() {
         if (el) el.textContent = name;
         const btn = document.getElementById("myEntriesBtn");
         if (btn) btn.style.display = "";
+        if (new URLSearchParams(window.location.search).get("my") === "1") {
+          _tableFilter = _me?.member?.id || null;
+          document.getElementById("coverageCard").style.display = "none";
+          document.getElementById("dutiesCardTitle").textContent = `${name}'s Entries`;
+          document.getElementById("pageNavTitle").textContent = `${name}'s Entries`;
+          document.getElementById("pageNav").style.display = "";
+          const sel = document.getElementById("memberFilter");
+          if (sel) sel.style.display = "none";
+          if (btn) btn.classList.add("active");
+          if (_data) buildDutiesTable(_data.entries);
+        }
       } else {
         const btn = document.getElementById("myEntriesBtn");
         if (btn) btn.style.display = "none";
@@ -1750,7 +1795,7 @@ async function openAddOffCall() {
   if (!_allMembers.length) { alert("Members are still loading, please try again."); return; }
   await _mePromise;
   _editingOffCallId = null;
-  document.getElementById("offCallModalTitle").textContent = "Add Off-Call Entry";
+  document.getElementById("offCallModalTitle").textContent = "Add D4H Off-Call Entry";
   document.getElementById("ocMemberPickerSection").style.display = "";
   document.getElementById("ocMemberLabelSection").style.display  = "none";
 
@@ -1773,7 +1818,7 @@ function openEditOffCall(id) {
   const entry = _data?.entries?.find(e => String(e.id) === String(id));
   if (!entry) return;
   _editingOffCallId = id;
-  document.getElementById("offCallModalTitle").textContent = "Edit Off-Call Entry";
+  document.getElementById("offCallModalTitle").textContent = "Edit D4H Off-Call Entry";
   document.getElementById("ocMemberPickerSection").style.display = "none";
   document.getElementById("ocMemberLabelSection").style.display  = "";
   document.getElementById("ocMemberLabelText").textContent = entry.member?.name || "";
