@@ -729,8 +729,10 @@ function formatDuration(ms) {
 
 function toDatetimeLocal(str) {
   if (!str) return "";
-  if (str.includes("T")) return str.slice(0, 16);
-  return str + "T00:00";
+  const d = new Date(str);
+  if (isNaN(d)) return "";
+  const pad = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 function updateUnavailDuration() {
